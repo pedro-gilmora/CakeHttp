@@ -1,27 +1,28 @@
 ﻿using System;
-using CakeHttp;
+using DevEverywhere.CakeHttp;
 using FluentAssertions;
 using NUnit.Framework;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Xml.Serialization;
+using CakeHttp.Attributes;
 
-namespace CakeHttp;
+namespace DevEverywhere.CakeHttp;
 
 public static partial class CakeHttpXmlTests
 {
-    private static ITravellerApi _requester = null!;
+    private static ITravellerApi _cakeClient = null!;
 
     [SetUp]
     public static void SetUp()
     {
-        _requester = CakeHttp.CreateClient<ITravellerApi>()!;
+        _cakeClient = CakeHttp.CreateClient<ITravellerApi>()!;
     }
 
     [Test]
     public static async Task ShouldMakeTheCall()
     {
-        var travellers = await _requester.Traveler.GetAsync(new { page = 1 });
+        var travellers = await _cakeClient.Traveler.GetAsync(new { page = 1 });
         travellers.Should().NotBeNull();
         travellers.Travelers.Items.Should().HaveCount(travellers.PerPage);
     }
@@ -30,7 +31,7 @@ public static partial class CakeHttpXmlTests
     public static async Task ShouldMakeIndexerTheCall()
     {
         const int Id = 11187;
-        var traveller = await _requester.Traveler[Id].GetAsync();
+        var traveller = await _cakeClient.Traveler[Id].GetAsync();
         traveller.Should().NotBeNull();
         traveller.Id.Should().Be(Id);
     }

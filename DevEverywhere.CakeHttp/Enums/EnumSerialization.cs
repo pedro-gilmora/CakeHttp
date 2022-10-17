@@ -1,4 +1,4 @@
-﻿namespace CakeHttp
+﻿namespace CakeHttp.Enums
 {
     public enum EnumSerialization : byte
     {

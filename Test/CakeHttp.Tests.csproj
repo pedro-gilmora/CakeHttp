@@ -21,7 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Requester\CakeHttp.csproj" />
+      <ProjectReference Include="..\DevEverywhere.CakeHttp\CakeHttp.csproj" />
     </ItemGroup>
 
 </Project>
