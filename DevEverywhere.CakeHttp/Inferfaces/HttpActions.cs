@@ -1,4 +1,4 @@
-﻿//namespace CakeHttp.Inferfaces;
+﻿//namespace DevEverywhere.CakeHttp.Inferfaces;
 
 //public interface IHttpAction { 
     

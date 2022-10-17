@@ -1,7 +1,10 @@
 ﻿using System.Text.Json;
-using WebHelpers;
+using System.Text.Json.Serialization;
+using CakeHttp.Converters;
+using CakeHttp.Enums;
+using DevEverywhere.CakeHttp;
 
-namespace CakeHttp
+namespace CakeHttp.Attributes
 {
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Class)]
     public sealed class CakeHttpOptionsAttribute : Attribute, ICakeHttpInitOptions
@@ -23,6 +26,8 @@ namespace CakeHttp
 
         public Func<string, string> PathAndQueryFormatter => _pathAndQueryTransformer;
 
+        public JsonSerializerOptions JsonOptions { get; }
+
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
         public CakeHttpOptionsAttribute(string baseUrl, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString)
 #pragma warning restore CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
@@ -30,15 +35,13 @@ namespace CakeHttp
             BaseUrl = baseUrl;
             CamelCasePathAndQuery = camelCasePathAndQuery;
             EnumSerialization = enumSerialization;
-            if (Extensions.DefaultRestifyJsonOptions.Converters.OfType<EnumJsonConverter>().FirstOrDefault() is { _enumSerialization: { } _enumSerialization } cnv)
-            {
-                if(enumSerialization != _enumSerialization)
-                    cnv._enumSerialization = enumSerialization;
-            }
-            else
-            {
-                Extensions.DefaultRestifyJsonOptions.Converters.Insert(0, new EnumJsonConverter(enumSerialization));
-            }
+
+            JsonOptions = new(JsonSerializerDefaults.General) { 
+                ReferenceHandler = ReferenceHandler.IgnoreCycles,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            JsonOptions.Converters.Insert(0, new EnumJsonConverter(enumSerialization));
         }
     }
 

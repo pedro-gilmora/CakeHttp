@@ -5,22 +5,22 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace CakeHttp;
+namespace DevEverywhere.CakeHttp;
 
 public static partial class CakeHttpJsonTests
 {
-    private static IPetStoreApi _requester = null!;
+    private static IPetStoreApi _cakeClient = null!;
 
     [SetUp]
     public static void SetUp()
     {
-        _requester = CakeHttp.CreateClient<IPetStoreApi>()!;
+        _cakeClient = CakeHttp.CreateClient<IPetStoreApi>()!;
     }
 
     [Test]
     public static async Task ShouldMakeTheCall()
     {
-        var inventory = await _requester.Store.Inventory.GetAsync();
+        var inventory = await _cakeClient.Store.Inventory.GetAsync();
         inventory.Should().BeOfType<Dictionary<string, long>>();
     }
 
@@ -33,7 +33,7 @@ public static partial class CakeHttpJsonTests
 
     private static Task<List<Pet>> GetPetsAsync()
     {
-        return _requester.Pet.FindByStatus.GetAsync(PetStatus.Available);
+        return _cakeClient.Pet.FindByStatus.GetAsync(PetStatus.Available);
     }
 
     [Test]
@@ -41,7 +41,7 @@ public static partial class CakeHttpJsonTests
     {
         FileInfo file = new("C:\\Users\\Pedro\\Pictures\\136403436_193298835812344_2020814743489326655_n.jpg");
         var pets = await GetPetsAsync();
-        var serverResponse = await _requester.Pet[pets[0].Id].UploadImage.PostAsync(file);
+        var serverResponse = await _cakeClient.Pet[pets[0].Id].UploadImage.PostAsync(file);
         serverResponse.Code.Should().Be(200);
     }
 

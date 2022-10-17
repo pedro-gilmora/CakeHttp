@@ -1,11 +1,12 @@
-using CakeHttp;
+using CakeHttp.Attributes;
+using CakeHttp.Enums;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace CakeHttp;
+namespace DevEverywhere.CakeHttp;
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
 

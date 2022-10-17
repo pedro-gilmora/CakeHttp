@@ -1,9 +1,10 @@
 ﻿using System.Reflection;
+using CakeHttp.Attributes;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Contrib.WaitAndRetry;
 
-namespace CakeHttp;
+namespace DevEverywhere.CakeHttp;
 
 public static class CakeHttpExtensions
 {

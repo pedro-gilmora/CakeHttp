@@ -1,7 +1,7 @@
-﻿
-namespace CakeHttp
+﻿namespace CakeHttp.Attributes
 {
-    public abstract class HeaderBaseAttribute : Attribute { 
+    public abstract class HeaderBaseAttribute : Attribute
+    {
         public abstract string Name { get; }
     }
 

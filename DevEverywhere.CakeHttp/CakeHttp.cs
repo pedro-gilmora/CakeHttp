@@ -1,4 +1,4 @@
-﻿//using CakeHttp.Inferfaces;
+﻿//using DevEverywhere.CakeHttp.Inferfaces;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
@@ -13,11 +13,11 @@ using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Serialization;
-using CakeHttp;
-using WebHelpers;
-using static WebHelpers.Extensions;
+using CakeHttp.Attributes;
+using CakeHttp.Converters;
+using CakeHttp.Enums;
 
-namespace CakeHttp;
+namespace DevEverywhere.CakeHttp;
 
 public class CakeHttp : DispatchProxy
 {
@@ -140,15 +140,17 @@ public class CakeHttp : DispatchProxy
                 out var requestHandlers,
                 out var responseHandlers,
                 out var queryFromParameters,
-                out var token, 
+                out var token,
                 out var formData
             );
 
-            using var request = CreateRequest(method, url, query, queryType, queryFromParameters);
+            var jsonOptions = _initOptions.JsonOptions;
+
+            using var request = CreateRequest(method, url, query, queryType, queryFromParameters, jsonOptions);
 
             var dynamicMethod = returnType == voidType ? invokeRequestMethod : getResponseMethod;
 
-            return ReturnAs(
+            return CakeHttp.ReturnAs(
                 dynamicMethod,
                 returnType,
                 _httpClient,
@@ -160,6 +162,7 @@ public class CakeHttp : DispatchProxy
                 targetMethod.GetCustomAttributes<HeaderBaseAttribute>().ToArray(),
                 requestHandlers,
                 responseHandlers,
+                jsonOptions,
                 token
             );
 
@@ -262,7 +265,7 @@ public class CakeHttp : DispatchProxy
         {
             Enum en => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(en.ToString())),
             string str => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(str)),
-            { } => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(JsonSerializer.Serialize(item, DefaultRestifyJsonOptions))),
+            { } => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(JsonSerializer.Serialize(item, _initOptions.JsonOptions))),
             _ => "null"
         });
     }
@@ -274,9 +277,9 @@ public class CakeHttp : DispatchProxy
 
     private static TItem[] Args<TItem>(params TItem[] list) => list;
 
-    private static async Task InvokeRequest(HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, CancellationToken token)
+    private static async Task InvokeRequest(HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
     {
-        await SetContentAndHeaders(request, method, content, contentType, formData, headers);
+        await SetContentAndHeaders(request, method, content, contentType, formData, headers, jsonOptions);
 
         if (requestHandler is { })
             await requestHandler(request);
@@ -287,9 +290,9 @@ public class CakeHttp : DispatchProxy
             await responseHandler(response);
     }
 
-    private static async Task<T> GetResponse<T>(Type returnType, HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] requestContents, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, CancellationToken token)
+    private static async Task<T> GetResponse<T>(Type returnType, HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] requestContents, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
     {
-        await SetContentAndHeaders(request, method, content, contentType, formData, requestContents);
+        await SetContentAndHeaders(request, method, content, contentType, formData, requestContents, jsonOptions);
 
         if (requestHandler is { })
             await requestHandler(request);
@@ -303,7 +306,7 @@ public class CakeHttp : DispatchProxy
         {
             //JSON
             if (response.Content.Headers.ContentType?.MediaType is MediaTypeNames.Application.Json)
-                return (await responseContent.ReadFromJsonAsync<T>(DefaultRestifyJsonOptions, token))!;
+                return (await responseContent.ReadFromJsonAsync<T>(jsonOptions, token))!;
 
             //XML
             else if (response.Content.Headers.ContentType?.MediaType is MediaTypeNames.Application.Xml)
@@ -321,7 +324,7 @@ public class CakeHttp : DispatchProxy
             // String
             else if (returnType == typeof(string))
                 return (T)(object)await responseContent.ReadAsStringAsync(token);
-            
+
             // Stream
             else if (returnType.IsAssignableTo(typeof(Stream)))
                 return (T)(object)await responseContent.ReadAsStreamAsync(token);
@@ -334,7 +337,7 @@ public class CakeHttp : DispatchProxy
             throw new FormatException($"Unable to deserialize {responseContent.GetType().Name} into {returnType.Name}");
         }
 
-        if(!response.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
             throw new HttpRequestException(response.ReasonPhrase, null, response.StatusCode);
 
         return default!;
@@ -348,7 +351,7 @@ public class CakeHttp : DispatchProxy
         return XDocument.Parse(xmlText).CreateReader();
     }
 
-    private HttpRequestMessage CreateRequest(string method, string url, object? query, Type? queryType, Dictionary<string, object?> queryFromParameters)
+    private HttpRequestMessage CreateRequest(string method, string url, object? query, Type? queryType, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions)
     {
         var httpMethod = method.ToUpperInvariant() switch
         {
@@ -359,7 +362,7 @@ public class CakeHttp : DispatchProxy
         };
 
         url = method is GET_METHOD or DELETE_METHOD && (query is { } && queryType is { } || queryFromParameters.Count > 0)
-            ? AddQuery(url, query, queryType, queryFromParameters)
+            ? AddQuery(url, query, queryType, queryFromParameters, jsonOptions)
             : url;
 
         HttpRequestMessage request = new(httpMethod, url);
@@ -368,7 +371,7 @@ public class CakeHttp : DispatchProxy
     }
 
 
-    private static async Task SetContentAndHeaders(HttpRequestMessage message, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headerResolvers)
+    private static async Task SetContentAndHeaders(HttpRequestMessage message, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headerResolvers, JsonSerializerOptions jsonOptions)
     {
         NameValueCollection contentHeaders = new();
 
@@ -394,19 +397,19 @@ public class CakeHttp : DispatchProxy
                 {
                     if (isFileName && val is FileInfo file)
                     {
-                        using MemoryStream memoryStream = new ();
+                        using MemoryStream memoryStream = new();
                         file.OpenRead().CopyTo(memoryStream);
                         ByteArrayContent fileStreamContent = new(memoryStream.GetBuffer());
                         formDataContent.Add(fileStreamContent, key, Path.GetFileName(file.FullName));
                     }
-                    else if (CreateContent(contentHeaders, content, contentType) is { } nested)
+                    else if (CreateContent(contentHeaders, content, contentType, jsonOptions) is { } nested)
                         formDataContent.Add(nested, key);
 
                 }
                 message.Content = formDataContent;
             }
             else if (content is { })
-                message.Content = CreateContent(contentHeaders, content, contentType);
+                message.Content = CreateContent(contentHeaders, content, contentType, jsonOptions);
 
             if (message.Content?.Headers is { } headers)
                 foreach (var header in contentHeaders.AllKeys)
@@ -416,18 +419,18 @@ public class CakeHttp : DispatchProxy
         }
     }
 
-    private static HttpContent? CreateContent(NameValueCollection contentHeaders, object? content, Type? contentType)
+    private static HttpContent? CreateContent(NameValueCollection contentHeaders, object? content, Type? contentType, JsonSerializerOptions jsonOptions)
     {
         return (contentHeaders["content-type"]?.ToLower(), content) switch
         {
             ({ } contentTypes, { }) when contentTypes.Contains(MediaTypeNames.Application.Json) || content is JsonDocument || content is JsonElement || (content as string)?.Trim() is ['{', .., '}'] =>
-                JsonContent.Create(content, contentType!, mediaType: MediaTypeHeaderValue.Parse(contentTypes), DefaultRestifyJsonOptions),
+                JsonContent.Create(content, contentType!, mediaType: MediaTypeHeaderValue.Parse(contentTypes), jsonOptions),
 
             ({ } contentTypes, { }) when TryGetXmlContent(contentTypes, content, contentType!, out StringContent xmlStringContent) =>
                xmlStringContent,
 
             ({ } contentTypes, { }) when contentTypes.Contains("application/x-www-form-urlencoded") =>
-                new FormUrlEncodedContent(GetPropertiesDictionary<object?, string?>(content, KeyToUrlEncode, ValueToUrlEncode)),
+                new FormUrlEncodedContent(GetPropertiesDictionary<object?, string?>(content, KeyToUrlEncode, v => ValueToUrlEncode(v, jsonOptions))),
 
             ({ } contentTypes, byte[] bytes) when contentTypes.Contains(MediaTypeNames.Application.Octet) =>
                 new ByteArrayContent(bytes),
@@ -436,6 +439,17 @@ public class CakeHttp : DispatchProxy
 
             _ => null
         };
+    }
+
+    private static IEnumerable<KeyValuePair<string, TOut>> GetPropertiesDictionary<T, TOut>(T props, Func<string, string>? keyTransform = null, Func<object?, TOut>? valueTransform = null)
+    {
+        keyTransform ??= k => k;
+        valueTransform ??= o => o is { } _o ? (TOut)_o : default!;
+        var inputType = typeof(T);
+        return inputType == typeof(object) && props != null
+            ? props.GetType().GetProperties().ToDictionary(p => keyTransform(p.Name), p => valueTransform(p.GetValue(props, null)))
+            : props is T val ? inputType.GetProperties().ToDictionary(p => p.Name, p => valueTransform(p.GetValue(val, null))) :
+                Array.Empty<KeyValuePair<string, TOut>>();
     }
 
     private static bool TryGetXmlContent<TContent>(string contentTypes, TContent content, Type returnType, out StringContent xml)
@@ -464,7 +478,7 @@ public class CakeHttp : DispatchProxy
         }
     }
 
-    private string AddQuery(string requestUri, object? queryParam, Type? type, Dictionary<string, object?> queryFromParameters)
+    private string AddQuery(string requestUri, object? queryParam, Type? type, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions)
     {
         List<(string, string?)> tuples = new();
 
@@ -474,17 +488,28 @@ public class CakeHttp : DispatchProxy
         if (type?.GetProperties() is { } properties)
             foreach (var p in properties)
             {
-                tuples.Add((KeyToUrlEncode(p.Name), ValueToUrlEncode(TransformObjectValue(queryParam))));
+                tuples.Add((KeyToUrlEncode(p.Name), ValueToUrlEncode(TransformObjectValue(queryParam), jsonOptions)));
             }
 
         foreach (var (key, value) in queryFromParameters)
         {
-            tuples.Add((KeyToUrlEncode(key), ValueToUrlEncode(TransformObjectValue(value))));
+            tuples.Add((KeyToUrlEncode(key), ValueToUrlEncode(TransformObjectValue(value), jsonOptions)));
         }
 
-        if (GetQuery(tuples) is { Length: > 0 } query)
+        if (GetQuery(tuples, jsonOptions) is { Length: > 0 } query)
             return requestUri + "?" + query;
         return requestUri;
+    }
+
+    public static string GetQuery<TValue>(List<(string key, TValue value)> props, JsonSerializerOptions jsonOptions, bool useArrayIndexer = false)
+    {
+        return string.Join("&",
+            from kv in props
+            group kv by kv.key into g
+            let last = g.Last()
+            select (useArrayIndexer && last.value is IEnumerable<TValue> enumerable) 
+                ? string.Join("&", from val in enumerable select $"{KeyToUrlEncode(last.key)}[]=${ValueToUrlEncode(val, jsonOptions)}") 
+                : string.Format("{0}{1}", last.key, last.value == null ? "" : "=" + last.value));
     }
 
     private string TransformObjectValue(object? queryParam)
@@ -493,12 +518,12 @@ public class CakeHttp : DispatchProxy
         {
             Enum en => EnumJsonConverter.GetSuitableValue(en, _initOptions.EnumSerialization).ToString()!,
             string str => _initOptions.PathAndQueryFormatter(str),
-            { } item => _initOptions.PathAndQueryFormatter(JsonSerializer.Serialize(item, DefaultRestifyJsonOptions)),
+            { } item => _initOptions.PathAndQueryFormatter(JsonSerializer.Serialize(item, _initOptions.JsonOptions)),
             _ => "null"
         });
     }
 
-    private static string? ValueToUrlEncode(object? arg)
+    private static string? ValueToUrlEncode(object? arg, JsonSerializerOptions jsonOptions)
     {
         if (arg is { })
             if (arg is string str)
@@ -506,7 +531,7 @@ public class CakeHttp : DispatchProxy
             else if (arg?.GetType() is { IsClass: true, })
                 return UrlEncoder.Default.Encode(arg?.ToString() ?? "");
             else
-                return JsonSerializer.Serialize(arg);
+                return JsonSerializer.Serialize(arg, jsonOptions);
         return arg?.ToString();
 
     }

@@ -1,16 +1,17 @@
-﻿using CakeHttp;
+﻿using CakeHttp.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace WebHelpers
+namespace CakeHttp.Converters
 {
     public class EnumJsonConverter : JsonConverter<Enum>
     {
         internal EnumSerialization _enumSerialization;
 
-        internal EnumJsonConverter(EnumSerialization enumSerialization) {
+        internal EnumJsonConverter(EnumSerialization enumSerialization)
+        {
             _enumSerialization = enumSerialization;
         }
 
@@ -33,11 +34,11 @@ namespace WebHelpers
 
         public override void Write(Utf8JsonWriter writer, Enum value, JsonSerializerOptions options)
         {
-            if(GetSuitableValue(value, _enumSerialization) is { } val)
+            if (GetSuitableValue(value, _enumSerialization) is { } val)
             {
-                if (val is string str) 
+                if (val is string str)
                     writer.WriteStringValue(str);
-                else 
+                else
                     writer.WriteNumberValue(Convert.ToUInt64(val));
             }
         }
