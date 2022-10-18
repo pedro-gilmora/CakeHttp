@@ -1,0 +1,6 @@
+{
+    "omnisharp.dotnetPath": "/workspaces/CakeHttp/.devcontainer/dotnet/",
+    "omnisharp.sdkPath": "/workspaces/CakeHttp/.devcontainer/dotnet/",
+    "omnisharp.testRunSettings": "",
+    "omnisharp.useModernNet": true
+}

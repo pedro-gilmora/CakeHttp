@@ -48,7 +48,7 @@ public static partial class CakeHttpJsonTests
     [Test]
     public static async Task ShouldMakeTheCallWithIndexer()
     {
-        FileInfo file = new("C:\\Users\\Pedro\\Pictures\\136403436_193298835812344_2020814743489326655_n.jpg");
+        FileInfo file = new("perrito.jpeg");
         var pets = await GetPetsAsync();
         var serverResponse = await _cakeClient.Pet[pets[0].Id].UploadImage.PostAsync(file);
         serverResponse.Code.Should().Be(200);

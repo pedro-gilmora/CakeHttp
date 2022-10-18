@@ -9,11 +9,9 @@ using System.Net.Http.Headers;
 using System.Xml.Serialization;
 using System.Text.Encodings.Web;
 using DevEverywhere.CakeHttp.Enums;
-using System.Diagnostics.CodeAnalysis;
 using DevEverywhere.CakeHttp.Attributes;
 using DevEverywhere.CakeHttp.Converters;
 using DevEverywhere.CakeHttp.Inferfaces;
-using Microsoft.Extensions.Options;
 
 namespace DevEverywhere.CakeHttp;
 
