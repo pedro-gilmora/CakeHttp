@@ -1,11 +1,12 @@
-﻿using FluentAssertions;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
+using NUnit.Framework;
+using FluentAssertions;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace DevEverywhere.CakeHttp;
+
 
 public static partial class CakeHttpJsonTests
 {

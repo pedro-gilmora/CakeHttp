@@ -10,6 +10,29 @@ namespace DevEverywhere.CakeHttp;
 
 public static class CakeHttpExtensions
 {
+    public static bool TryAdd<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue value)
+    {
+        if (dictionary == null)
+        {
+            throw new ArgumentNullException(nameof(dictionary));
+        }
+
+        if (!dictionary.ContainsKey(key))
+        {
+            dictionary.Add(key, value);
+            return true;
+        }
+
+        return false;
+    }
+
+    public static IEnumerable<(TKey, TValue)> Deconstruct<TKey, TValue>(this IDictionary<TKey, TValue> keyValuePairs)
+    {
+        foreach (var item in keyValuePairs)
+        {
+            yield return (item.Key, item.Value);
+        }
+    }
 
     public static IServiceCollection AddCakeHttp<TApi>(this IServiceCollection serviceCollection, string _url, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class 
     {
