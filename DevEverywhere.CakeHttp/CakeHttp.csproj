@@ -9,9 +9,11 @@
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<PackageId>$(Authors).$(AssemblyName)</PackageId>
 		<Title>$(AssemblyName): Making HTTP requests easier</Title>
-		<AssemblyVersion>0.0.1</AssemblyVersion>
+		<AssemblyVersion>0.0.2</AssemblyVersion>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+		<SignAssembly>False</SignAssembly>
+		<Description>Define API structure and create easy HTTP requests based on the paths of properties and methods</Description>
   </PropertyGroup>
 
   <ItemGroup>

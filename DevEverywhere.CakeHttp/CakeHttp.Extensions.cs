@@ -1,9 +1,10 @@
-﻿using System.Reflection;
-using CakeHttp.Attributes;
-using CakeHttp.Enums;
-using Microsoft.Extensions.DependencyInjection;
-using Polly;
+﻿using Polly;
 using Polly.Contrib.WaitAndRetry;
+using System.Reflection;
+using DevEverywhere.CakeHttp.Attributes;
+using DevEverywhere.CakeHttp.Enums;
+using DevEverywhere.CakeHttp.Inferfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DevEverywhere.CakeHttp;
 
