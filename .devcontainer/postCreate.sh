@@ -12,10 +12,4 @@ else
     sudo rmdir dotnet6 --ignore-fail-on-non-empty
 fi
 
-# if [[ $DOTNET == "" ]]; then
-#     echo "\$DOTNET doesn't exists
-# "
-#     DOTNET=$PWD/dotnet
-#     export DOTNET;
-#     $DOTNET --version;
-# fi
+dotnet --version
