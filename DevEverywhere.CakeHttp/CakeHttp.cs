@@ -12,12 +12,14 @@ using DevEverywhere.CakeHttp.Enums;
 using System.Diagnostics.CodeAnalysis;
 using DevEverywhere.CakeHttp.Attributes;
 using DevEverywhere.CakeHttp.Converters;
+using DevEverywhere.CakeHttp.Inferfaces;
+using Microsoft.Extensions.Options;
 
 namespace DevEverywhere.CakeHttp;
 
 public class CakeHttp : DispatchProxy
 {
-
+    #region Utils
     private static readonly MethodInfo creator = typeof(DispatchProxy).GetMethod(nameof(Create))!;
 
     const string
@@ -42,6 +44,9 @@ public class CakeHttp : DispatchProxy
     private static readonly Func<HttpRequestMessage, Task> defaultRequestHandler = async r => { await Task.CompletedTask; };
     private static readonly Func<HttpResponseMessage, Task> defaultResponseHandler = async r => { await Task.CompletedTask; };
 
+    #endregion
+
+    #region Creators
     public static TApi CreateClient<TApi>() where TApi : class
     {
         Type apiType = typeof(TApi);
@@ -86,29 +91,34 @@ public class CakeHttp : DispatchProxy
                 opts.RequestContentHeaders.Add(contentHeader.Name, contentHeader.Value);
             });
 
-        dynamic t = Create<TApi, CakeHttp>()!;
-        t._httpClient = httpClient;
-        t._initOptions = opts;
+        dynamic apiProxy = Create<TApi, CakeHttp>()!;
+        apiProxy._httpClient = httpClient;
+        apiProxy._initOptions = opts;
 
-        return (TApi)t;
+        return (TApi)apiProxy;
     }
+    #endregion
+
+    #region Instance Members
 
     private CakeHttpOptionsAttribute _initOptions = null!;
     private HttpClient _httpClient = null!;
     private List<object?> _pathSegments = new();
 
-
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         if (targetMethod is { Name: { } name, IsGenericMethod: { } isGeneric, ReturnType: { } methodReturnType })
         {
+            #region Attributes
             if (targetMethod.GetCustomAttributes<ContentHeaderAttribute>()?.ToList() is { } defaultRequestContentHeaders)
                 defaultRequestContentHeaders.ForEach(contentHeader =>
                 {
                     if (!_initOptions.RequestContentHeaders.TryAdd(contentHeader.Name, contentHeader.Value))
                         _initOptions.RequestContentHeaders[contentHeader.Name] = contentHeader.Value;
                 });
+            #endregion
 
+            #region Properties and Indexers
             if (name.StartsWith("get_") || name.StartsWith("set_"))
             {
                 dynamic ret = creator.MakeGenericMethod(methodReturnType, typeof(CakeHttp)).Invoke(null, null)!;
@@ -126,7 +136,9 @@ public class CakeHttp : DispatchProxy
 
                 return ret;
             }
+            #endregion
 
+            #region API Invocation
             ParameterInfo[] parameterInfos = targetMethod.GetParameters();
 
             var method = targetMethod.Name.ToUpper() switch
@@ -137,7 +149,9 @@ public class CakeHttp : DispatchProxy
                 _ => GET_METHOD,
             };
 
-            string url = BuildPath();
+            var jsonOptions = _initOptions.JsonOptions;
+
+            string url = BuildPath(_pathSegments, _initOptions);
 
             Type[] argumentTypes = isGeneric ? methodReturnType.GetGenericArguments() : Array.Empty<Type>();
 
@@ -157,9 +171,7 @@ public class CakeHttp : DispatchProxy
                 out var formData
             );
 
-            var jsonOptions = _initOptions.JsonOptions;
-
-            var request = CreateRequest(method, url, query, queryType, queryFromParameters, jsonOptions);
+            var request = CreateRequest(method, url, query, queryType, queryFromParameters, jsonOptions, _initOptions);
 
             var dynamicMethod = returnType == voidType ? invokeRequestMethod : getResponseMethod;
 
@@ -181,13 +193,150 @@ public class CakeHttp : DispatchProxy
                 token
             );
 
+            #endregion
         }
         return this;
     }
 
-    private static IEnumerable<HeaderBaseAttribute> CreateContentHeaders(Dictionary<string, string> requestContentHeaders)
+    #endregion
+
+    #region Helpers
+
+    private static HttpRequestMessage CreateRequest(string method, string url, object? query, Type? queryType, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions, ICakeHttpInitOptions cakeOptions)
     {
-        foreach ((string key, string value) in requestContentHeaders)
+        var httpMethod = method.ToUpperInvariant() switch
+        {
+            POST_METHOD => HttpMethod.Post,
+            PUT_METHOD => HttpMethod.Put,
+            DELETE_METHOD => HttpMethod.Delete,
+            _ => HttpMethod.Get
+        };
+
+        url = method is GET_METHOD or DELETE_METHOD && (query is { } && queryType is { } || queryFromParameters.Count > 0)
+            ? AddQuery(url, query, queryType, queryFromParameters, jsonOptions, cakeOptions)
+            : url;
+
+        HttpRequestMessage request = new(httpMethod, url);
+
+        return request;
+    }  
+    
+    private static async Task InvokeRequest(HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
+    {
+        await SetContentAndHeaders(request, method, content, contentType, formData, headers, jsonOptions);
+
+        if (requestHandler is { })
+            await requestHandler(request);
+
+        var response = await httpClient.SendAsync(request, token);
+
+        request.Dispose();
+
+        if (responseHandler is { })
+            await responseHandler(response);
+    }
+    
+    private static async Task<T> GetResponse<T>(Type returnType, HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] requestContents, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
+    {
+        await SetContentAndHeaders(request, method, content, contentType, formData, requestContents, jsonOptions);
+
+        if (requestHandler is { })
+            await requestHandler(request);
+
+        using HttpResponseMessage response = await httpClient.SendAsync(request, token);
+
+        request.Dispose();
+
+        if (responseHandler is { })
+            await responseHandler(response);
+
+        if (response is { Content: { Headers: { } _headers } responseContent })
+        {
+            //JSON
+            if (response.Content.Headers.ContentType?.MediaType?.Contains("application/json") ?? false)
+                return (await responseContent.ReadFromJsonAsync<T>(jsonOptions, token))!;
+
+            //XML
+            else if (response.Content.Headers.ContentType?.MediaType?.Contains("application/xml") ?? false)
+                // Type
+                if (returnType.IsSerializable)
+                    return (T)(new XmlSerializer(returnType).Deserialize(await GetXmlReaderAsync(responseContent, true, token)))!;
+
+                //XDocument
+                else if (returnType == typeof(XDocument))
+                    return (T)((object)XDocument.Parse(await responseContent.ReadAsStringAsync()))!;
+                // XElement
+                else
+                    return (T)(object)XElement.Parse(await responseContent.ReadAsStringAsync());
+
+            // String
+            else if (returnType == typeof(string))
+                return (T)(object)await responseContent.ReadAsStringAsync();
+
+            // Stream
+            else if (typeof(Stream).IsAssignableFrom(returnType))
+                return (T)(object)await responseContent.ReadAsStreamAsync();
+
+            // Byte[]
+            else if (returnType == typeof(byte[]))
+                return (T)(object)await responseContent.ReadAsByteArrayAsync();
+
+            // Not serializable
+            throw new FormatException($"Unable to deserialize {responseContent.GetType().Name} into {returnType.Name}");
+        }
+
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(response.ReasonPhrase);
+
+        return default!;
+    }
+
+    private static string AddQuery(string requestUri, object? queryParam, Type? type, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions, ICakeHttpInitOptions options)
+    {
+        List<(string, string?)> tuples = new();
+
+        if (queryParam is (string, string?)[] pdic)
+            tuples = pdic.ToList();
+
+        if (type?.GetProperties() is { } properties)
+            foreach (var p in properties)
+            {
+                tuples.Add((KeyToUrlEncode(p.Name), ValueToUrlEncode(TransformObjectValue(queryParam, options), jsonOptions)));
+            }
+
+        foreach (var (key, value) in queryFromParameters.Deconstruct())
+        {
+            tuples.Add((KeyToUrlEncode(key), ValueToUrlEncode(TransformObjectValue(value, options), jsonOptions)));
+        }
+
+        if (GetQuery(tuples, jsonOptions) is { Length: > 0 } query)
+            return requestUri + "?" + query;
+        return requestUri;
+    }
+
+    private static string TransformObjectValue(object? queryParam, ICakeHttpInitOptions options)
+    {
+        return KeyToUrlEncode(queryParam switch
+        {
+            Enum en => EnumJsonConverter.GetSuitableValue(en, options.EnumSerialization).ToString()!,
+            string str => options.PathAndQueryFormatter(str),
+            { } item => options.PathAndQueryFormatter(JsonSerializer.Serialize(item, options.JsonOptions)),
+            _ => "null"
+        });
+    }
+
+    private static string BuildPath(List<object?> pathSegments, ICakeHttpInitOptions options)
+    {
+        return pathSegments.Aggregate("", (list, item) => list + AddSegmentSeparator(list) + item switch
+        {
+            Enum en => options.PathAndQueryFormatter(KeyToUrlEncode(en.ToString())),
+            string str => options.PathAndQueryFormatter(KeyToUrlEncode(str)),
+            { } => options.PathAndQueryFormatter(KeyToUrlEncode(JsonSerializer.Serialize(item, options.JsonOptions))),
+            _ => "null"
+        });
+    } private static IEnumerable<HeaderBaseAttribute> CreateContentHeaders(Dictionary<string, string> requestContentHeaders)
+    {
+        foreach ((string key, string value) in requestContentHeaders.Deconstruct())
             yield return new RequestHeaderAttribute(key, value);
     }
 
@@ -257,6 +406,28 @@ public class CakeHttp : DispatchProxy
         requestHandlers -= defaultRequestHandler;
     }
 
+    private static HttpContent? CreateContent(string? contentTypeHeader, object? content, Type? contentType, JsonSerializerOptions jsonOptions)
+    {
+        return (contentTypeHeader, content) switch
+        {
+            ({ } contentTypes, { }) when contentTypes.Contains("application/json") || content is JsonDocument || content is JsonElement || (content as string)?.Trim() is ['{', .., '}'] =>
+                JsonContent.Create(content, contentType!, mediaType: MediaTypeHeaderValue.Parse(contentTypes), jsonOptions),
+
+            ({ } contentTypes, { }) when TryGetXmlContent(contentTypes, content, contentType!, out StringContent xmlStringContent) =>
+               xmlStringContent,
+
+            ({ } contentTypes, { }) when contentTypes.Contains("application/x-www-form-urlencoded") =>
+                new FormUrlEncodedContent(GetPropertiesDictionary<object?, string?>(content, KeyToUrlEncode, v => ValueToUrlEncode(v, jsonOptions))),
+
+            ({ } contentTypes, byte[] bytes) when contentTypes.Contains(MediaTypeNames.Application.Octet) =>
+                new ByteArrayContent(bytes),
+
+            (_, { }) => throw new ArgumentException("Unable to serialize object to content body", nameof(content)),
+
+            _ => null
+        };
+    }
+
     private static bool HasParameter<T>(object?[]? args, out T param, params int[] indexes)
     {
         if (args is { })
@@ -278,122 +449,19 @@ public class CakeHttp : DispatchProxy
             .Invoke(null, new[] { returnType }.Concat(parameters).ToArray())!;
     }
 
-    private string BuildPath()
-    {
-        return _pathSegments.Aggregate("", (list, item) => list + AddSegmentSeparator(list) + item switch
-        {
-            Enum en => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(en.ToString())),
-            string str => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(str)),
-            { } => _initOptions.PathAndQueryFormatter(KeyToUrlEncode(JsonSerializer.Serialize(item, _initOptions.JsonOptions))),
-            _ => "null"
-        });
-    }
-
     private static string AddSegmentSeparator(string list)
     {
         return string.IsNullOrEmpty(list) ? "" : "/";
     }
 
-    private static TItem[] Args<TItem>(params TItem[] list) => list;
-
-    private static async Task InvokeRequest(HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
-    {
-        await SetContentAndHeaders(request, method, content, contentType, formData, headers, jsonOptions);
-
-        if (requestHandler is { })
-            await requestHandler(request);
-
-        var response = await httpClient.SendAsync(request, token);
-
-        request.Dispose();
-
-        if (responseHandler is { })
-            await responseHandler(response);
-    }
-
-    private static async Task<T> GetResponse<T>(Type returnType, HttpClient httpClient, HttpRequestMessage request, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] requestContents, Func<HttpRequestMessage, Task>? requestHandler, Func<HttpResponseMessage, Task>? responseHandler, JsonSerializerOptions jsonOptions, CancellationToken token)
-    {
-        await SetContentAndHeaders(request, method, content, contentType, formData, requestContents, jsonOptions);
-
-        if (requestHandler is { })
-            await requestHandler(request);
-
-        using HttpResponseMessage response = await httpClient.SendAsync(request, token);
-        
-        request.Dispose();
-        
-        if (responseHandler is { })
-            await responseHandler(response);
-
-        if (response is { Content: { Headers: { } _headers } responseContent })
-        {
-            //JSON
-            if (response.Content.Headers.ContentType?.MediaType is MediaTypeNames.Application.Json)
-                return (await responseContent.ReadFromJsonAsync<T>(jsonOptions, token))!;
-
-            //XML
-            else if (response.Content.Headers.ContentType?.MediaType is MediaTypeNames.Application.Xml)
-                // Type
-                if (returnType.IsSerializable)
-                    return (T)(new XmlSerializer(returnType).Deserialize(await GetXmlReaderAsync(responseContent, true, token)))!;
-
-                //XDocument
-                else if (returnType == typeof(XDocument))
-                    return (T)((object)XDocument.Parse(await responseContent.ReadAsStringAsync(token)))!;
-                // XElement
-                else
-                    return (T)(object)XElement.Parse(await responseContent.ReadAsStringAsync(token));
-
-            // String
-            else if (returnType == typeof(string))
-                return (T)(object)await responseContent.ReadAsStringAsync(token);
-
-            // Stream
-            else if (returnType.IsAssignableTo(typeof(Stream)))
-                return (T)(object)await responseContent.ReadAsStreamAsync(token);
-
-            // Byte[]
-            else if (returnType == typeof(byte[]))
-                return (T)(object)await responseContent.ReadAsByteArrayAsync(token);
-
-            // Not serializable
-            throw new FormatException($"Unable to deserialize {responseContent.GetType().Name} into {returnType.Name}");
-        }
-
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException(response.ReasonPhrase, null, response.StatusCode);
-
-        return default!;
-    }
-
     private static async Task<XmlReader> GetXmlReaderAsync(HttpContent content, bool mandatoryDocument, CancellationToken token)
     {
-        string xmlText = await content.ReadAsStringAsync(token);
+        string xmlText = await content.ReadAsStringAsync();
         if (mandatoryDocument && !xmlText.StartsWith("<?xml"))
             xmlText = xmlText.Insert(0, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         return XDocument.Parse(xmlText).CreateReader();
     }
-
-    private HttpRequestMessage CreateRequest(string method, string url, object? query, Type? queryType, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions)
-    {
-        var httpMethod = method.ToUpperInvariant() switch
-        {
-            POST_METHOD => HttpMethod.Post,
-            PUT_METHOD => HttpMethod.Put,
-            DELETE_METHOD => HttpMethod.Delete,
-            _ => HttpMethod.Get
-        };
-
-        url = method is GET_METHOD or DELETE_METHOD && (query is { } && queryType is { } || queryFromParameters.Count > 0)
-            ? AddQuery(url, query, queryType, queryFromParameters, jsonOptions)
-            : url;
-
-        HttpRequestMessage request = new(httpMethod, url);
-
-        return request;
-    }
-
-
+    
     private static async Task SetContentAndHeaders(HttpRequestMessage message, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, JsonSerializerOptions jsonOptions)
     {
         var headersList = headers.ToList();
@@ -459,28 +527,6 @@ public class CakeHttp : DispatchProxy
             
     }
 
-    private static HttpContent? CreateContent(string? contentTypeHeader, object? content, Type? contentType, JsonSerializerOptions jsonOptions)
-    {
-        return (contentTypeHeader, content) switch
-        {
-            ({ } contentTypes, { }) when contentTypes.Contains(MediaTypeNames.Application.Json) || content is JsonDocument || content is JsonElement || (content as string)?.Trim() is ['{', .., '}'] =>
-                JsonContent.Create(content, contentType!, mediaType: MediaTypeHeaderValue.Parse(contentTypes), jsonOptions),
-
-            ({ } contentTypes, { }) when TryGetXmlContent(contentTypes, content, contentType!, out StringContent xmlStringContent) =>
-               xmlStringContent,
-
-            ({ } contentTypes, { }) when contentTypes.Contains("application/x-www-form-urlencoded") =>
-                new FormUrlEncodedContent(GetPropertiesDictionary<object?, string?>(content, KeyToUrlEncode, v => ValueToUrlEncode(v, jsonOptions))),
-
-            ({ } contentTypes, byte[] bytes) when contentTypes.Contains(MediaTypeNames.Application.Octet) =>
-                new ByteArrayContent(bytes),
-
-            (_, { }) => throw new ArgumentException("Unable to serialize object to content body", nameof(content)),
-
-            _ => null
-        };
-    }
-
     private static IEnumerable<KeyValuePair<string, TOut>> GetPropertiesDictionary<T, TOut>(T props, Func<string, string>? keyTransform = null, Func<object?, TOut>? valueTransform = null)
     {
         keyTransform ??= k => k;
@@ -499,13 +545,13 @@ public class CakeHttp : DispatchProxy
         return (true switch
         {
             true when (content as string)?.Trim() is ['<', '?', 'x', 'm', 'l', .., '>'] xmlString =>
-                xml = new StringContent(xmlString, mediaType),
+                xml = new StringContent(xmlString, Encoding.Default, mediaType.ToString()),
 
             true when returnType.IsSerializable && contentTypes.Contains("/xml") =>
                 xml = ObjectSerializationToContent(returnType, content, mediaType),
 
             true when content is XContainer xdoc =>
-                xml = new StringContent(xdoc.ToString(), mediaType),
+                xml = new StringContent(xdoc.ToString(), Encoding.Default, mediaType.ToString()),
 
             _ => xml = null!
         }) is not null;
@@ -514,31 +560,8 @@ public class CakeHttp : DispatchProxy
         {
             using MemoryStream memory = new();
             new XmlSerializer(firstArgType).Serialize(memory, content);
-            return new(Encoding.UTF8.GetString(memory.GetBuffer()), mediaType);
+            return new(Encoding.Default.GetString(memory.GetBuffer()), Encoding.Default, mediaType.ToString());
         }
-    }
-
-    private string AddQuery(string requestUri, object? queryParam, Type? type, Dictionary<string, object?> queryFromParameters, JsonSerializerOptions jsonOptions)
-    {
-        List<(string, string?)> tuples = new();
-
-        if (queryParam is (string, string?)[] pdic)
-            tuples = pdic.ToList();
-
-        if (type?.GetProperties() is { } properties)
-            foreach (var p in properties)
-            {
-                tuples.Add((KeyToUrlEncode(p.Name), ValueToUrlEncode(TransformObjectValue(queryParam), jsonOptions)));
-            }
-
-        foreach (var (key, value) in queryFromParameters)
-        {
-            tuples.Add((KeyToUrlEncode(key), ValueToUrlEncode(TransformObjectValue(value), jsonOptions)));
-        }
-
-        if (GetQuery(tuples, jsonOptions) is { Length: > 0 } query)
-            return requestUri + "?" + query;
-        return requestUri;
     }
 
     public static string GetQuery<TValue>(List<(string key, TValue value)> props, JsonSerializerOptions jsonOptions, bool useArrayIndexer = false)
@@ -550,17 +573,6 @@ public class CakeHttp : DispatchProxy
             select (useArrayIndexer && last.value is IEnumerable<TValue> enumerable) 
                 ? string.Join("&", from val in enumerable select $"{KeyToUrlEncode(last.key)}[]=${ValueToUrlEncode(val, jsonOptions)}") 
                 : string.Format("{0}{1}", last.key, last.value == null ? "" : "=" + last.value));
-    }
-
-    private string TransformObjectValue(object? queryParam)
-    {
-        return KeyToUrlEncode(queryParam switch
-        {
-            Enum en => EnumJsonConverter.GetSuitableValue(en, _initOptions.EnumSerialization).ToString()!,
-            string str => _initOptions.PathAndQueryFormatter(str),
-            { } item => _initOptions.PathAndQueryFormatter(JsonSerializer.Serialize(item, _initOptions.JsonOptions)),
-            _ => "null"
-        });
     }
 
     private static string? ValueToUrlEncode(object? arg, JsonSerializerOptions jsonOptions)
@@ -576,9 +588,16 @@ public class CakeHttp : DispatchProxy
 
     }
 
-    private static string KeyToUrlEncode([NotNull] string arg)
+    private static string KeyToUrlEncode(string arg)
     {
+        if (arg is null)
+        {
+            throw new ArgumentNullException(nameof(arg));
+        }
+
         return UrlEncoder.Default.Encode(arg.ToString());
 
     }
+
+    #endregion
 }
