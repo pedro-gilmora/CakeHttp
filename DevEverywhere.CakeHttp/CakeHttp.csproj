@@ -8,7 +8,7 @@
 		<Authors>DevEverywhere</Authors>
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<PackageId>$(Authors).$(AssemblyName)</PackageId>
-		<PackageVersion>1.0.1</PackageVersion>
+		<PackageVersion>1.0.2</PackageVersion>
 		<Title>$(AssemblyName): Making HTTP requests easier</Title>
 		<AssemblyVersion>0.0.2</AssemblyVersion>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
