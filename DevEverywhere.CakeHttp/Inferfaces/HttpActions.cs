@@ -10,11 +10,6 @@ public interface IDelete : IHttpAction
 {
     Task DeleteAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
 }
-
-public interface IGet : IHttpAction
-{
-    Task GetAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
-}
 public interface IPost : IHttpAction
 {
     Task PostAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);

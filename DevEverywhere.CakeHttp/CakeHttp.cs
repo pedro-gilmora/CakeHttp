@@ -1,22 +1,17 @@
-﻿//using DevEverywhere.CakeHttp.Inferfaces;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Net.Mime;
-using System.Reflection;
-using System.Security.AccessControl;
+﻿using System.Xml;
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Xml;
+using System.Net.Mime;
 using System.Xml.Linq;
+using System.Text.Json;
+using System.Reflection;
+using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Xml.Serialization;
-using CakeHttp.Attributes;
-using CakeHttp.Converters;
-using CakeHttp.Enums;
+using System.Text.Encodings.Web;
+using DevEverywhere.CakeHttp.Enums;
+using System.Diagnostics.CodeAnalysis;
+using DevEverywhere.CakeHttp.Attributes;
+using DevEverywhere.CakeHttp.Converters;
 
 namespace DevEverywhere.CakeHttp;
 

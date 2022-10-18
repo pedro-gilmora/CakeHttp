@@ -1,11 +1,10 @@
-using CakeHttp.Attributes;
-using CakeHttp.Enums;
+using DevEverywhere.CakeHttp.Attributes;
+using DevEverywhere.CakeHttp.Enums;
 using DevEverywhere.CakeHttp.Inferfaces;
-using Microsoft.AspNetCore.Mvc;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace DevEverywhere.CakeHttp;
 
@@ -22,16 +21,10 @@ public interface IPetStoreApi
     IUser User { get; }
 }
 
-public interface IOrder
+public interface IStore
 {
-    Task<Order> PostAsync(Order newOrder);
-    IOrderActionsByOrderId this[int orderId] { get; }
-}
-
-public interface IOrderActionsByOrderId 
-{
-    Task<Order> GetAsync();
-    Task<ApiResponse> DeleteAsync();
+    IOrder Order { get; }
+    IStoreInventory Inventory { get; }
 }
 
 public interface IPet
@@ -39,6 +32,15 @@ public interface IPet
     IPetActionsByPetId this[long petId] { get; set; }
     IPetActionsByStatus FindByStatus { get; set; }
     IOrderActions Order { get; }
+}
+
+public interface IOrder: IPost<User, User>
+{
+    IOrderActionsByOrderId this[int orderId] { get; }
+}
+
+public interface IOrderActionsByOrderId : IGetRetrieve<Order>, IDeleteRetrieve<ApiResponse>
+{
 }
 
 public interface IPetActionsByStatus
@@ -55,16 +57,11 @@ public class ApiKeyResolver : IAsyncValueResolver
     }
 }
 
-public interface IOrderActions {
-    Task<User> PostAsync(User user);
-    Task<User> PutAsync(User user);
+public interface IOrderActions: IPost<Order, Order>, IPut<Order, Order> {
 }
 
-public interface IPetActionsByPetId 
+public interface IPetActionsByPetId : IGetRetrieve<Pet>, IDeleteRetrieve<ApiResponse>, IPost<Pet, Pet>
 {
-    Task<Pet> GetAsync();
-    Task<Pet> PostAsync(Pet pet);
-    Task<ApiResponse> DeleteAsync();
     IPetActionsByPetIdUploadImage UploadImage { get; }
 }
 
@@ -74,15 +71,8 @@ public interface IPetActionsByPetIdUploadImage
 
 }
 
-public interface IStore
+public interface IStoreInventory: IGetRetrieve<Dictionary<string, long>>
 {
-    IOrder Order { get; }
-    IStoreInventory Inventory { get; }
-}
-
-public interface IStoreInventory
-{
-    Task<Dictionary<string, long>> GetAsync();
 }
 
 public interface IUser : IPost<User, ApiResponse>
@@ -94,11 +84,8 @@ public interface IPostUsersArray {
 
 }
 
-public interface IUserStringIndexer
+public interface IUserStringIndexer: IDeleteRetrieve<ApiResponse>, IGetRetrieve<User>, IPut<User, User>
 {
-    Task<ApiResponse> IDeleteAsync();
-    Task<User> GetAsync();
-    Task<User> PutAsync(User user);
 
 }
 

@@ -1,11 +1,10 @@
-﻿namespace CakeHttp.Enums
+﻿namespace DevEverywhere.CakeHttp.Enums;
+
+public enum EnumSerialization : byte
 {
-    public enum EnumSerialization : byte
-    {
-        Number = 1,
-        String = 2,
-        CamelCaseString = 6,
-        UpperCaseString = 10,
-        LowerCaseString = 18
-    }
+    Number = 1,
+    String = 2,
+    CamelCaseString = 6,
+    UpperCaseString = 10,
+    LowerCaseString = 18
 }

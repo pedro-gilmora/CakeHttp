@@ -9,12 +9,11 @@ namespace DevEverywhere.CakeHttp;
 
 public static partial class CakeHttpJsonTests
 {
-    private static IPetStoreApi _cakeClient = null!;
+    private readonly static IPetStoreApi _cakeClient = CakeHttp.CreateClient<IPetStoreApi>();
 
     [SetUp]
     public static void SetUp()
     {
-        _cakeClient = CakeHttp.CreateClient<IPetStoreApi>();
     }
 
     [Test]
@@ -28,7 +27,7 @@ public static partial class CakeHttpJsonTests
     public static async Task ShouldPostUser()
     {
         Guid guid = Guid.NewGuid();
-        User user = new() { Username = $"pedro.gilmora_{guid}", Email = $"test_{guid}@test.com", Password = "!CakeHTTP." };
+        User user = new() { Username = $"test_{guid}", Email = $"test_{guid}@test.com", Password = "!CakeHTTP." };
         var response = await _cakeClient.User.PostAsync(user);
         response.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
     }
