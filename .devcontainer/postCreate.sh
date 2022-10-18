@@ -13,10 +13,3 @@ else
 fi
 
 dotnet --version
-# if [[ $DOTNET == "" ]]; then
-#     echo "\$DOTNET doesn't exists
-# "
-#     DOTNET=$PWD/dotnet
-#     export DOTNET;
-#     $DOTNET --version;
-# fi
