@@ -24,4 +24,10 @@
       <ProjectReference Include="..\DevEverywhere.CakeHttp\CakeHttp.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="perrito.jpeg">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
