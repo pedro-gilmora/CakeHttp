@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 		<LangVersion>preview</LangVersion>
+		<Authors>DevEverywhere</Authors>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<PackageId>$(Authors).$(AssemblyName)</PackageId>
+		<Title>$(AssemblyName): Making HTTP requests easier</Title>
+		<AssemblyVersion>0.0.1</AssemblyVersion>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,28 +1,24 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿namespace DevEverywhere.CakeHttp.Attributes;
 
-namespace CakeHttp.Attributes
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
+public class FormDataAttribute : Attribute
 {
-    [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
-    public class FormDataAttribute : Attribute
+    public FormDataAttribute() { }
+    public FormDataAttribute(string key)
     {
-        public FormDataAttribute() { }
-        public FormDataAttribute(string key)
-        {
-            Key = key;
-        }
-
-        public string? Key { get; protected set; }
+        Key = key;
     }
 
-    [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
-    public sealed class FormDataAttribute<T> : FormDataAttribute where T : HttpContent
+    public string? Key { get; protected set; }
+}
+
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
+public sealed class FormDataAttribute<T> : FormDataAttribute where T : HttpContent
+{
+    public FormDataAttribute() { }
+    public FormDataAttribute(string key)
     {
-        public FormDataAttribute() { }
-        public FormDataAttribute(string key)
-        {
-            Key = key;
-        }
-        public Type Value { get; } = typeof(T);
+        Key = key;
     }
+    public Type Value { get; } = typeof(T);
 }

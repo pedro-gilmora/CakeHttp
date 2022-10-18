@@ -1,35 +1,30 @@
-using CakeHttp.Attributes;
-using CakeHttp.Enums;
-using Microsoft.AspNetCore.Mvc;
+using DevEverywhere.CakeHttp.Attributes;
+using DevEverywhere.CakeHttp.Enums;
+using DevEverywhere.CakeHttp.Inferfaces;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace DevEverywhere.CakeHttp;
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
 
-public class Order
+
+[CakeHttpOptions("https://petstore.swagger.io/v2/", true, EnumSerialization.CamelCaseString)]
+[RequestHeader("Accept","application/json")]
+[ContentHeader("Content-Type","application/json")]
+public interface IPetStoreApi
 {
-    public int Id { get; set; }
-    public int PetId { get; set; }
-    public int Quantity { get; set; }
-    public DateTime ShipDate { get; set; }
-    public OrderStatus Status { get; set; }
-    public bool Complete { get; set; }
+    IStore Store { get; }
+    IPet Pet { get; }
+    IUser User { get; }
 }
 
-public interface IOrder
+public interface IStore
 {
-    Task<Order> PostAsync(Order newOrder);
-    IOrderActionsByOrderId this[int orderId] { get; }
-}
-
-public interface IOrderActionsByOrderId 
-{
-    Task<Order> GetAsync();
-    Task<ApiResponse> DeleteAsync();
+    IOrder Order { get; }
+    IStoreInventory Inventory { get; }
 }
 
 public interface IPet
@@ -37,6 +32,15 @@ public interface IPet
     IPetActionsByPetId this[long petId] { get; set; }
     IPetActionsByStatus FindByStatus { get; set; }
     IOrderActions Order { get; }
+}
+
+public interface IOrder: IPost<User, User>
+{
+    IOrderActionsByOrderId this[int orderId] { get; }
+}
+
+public interface IOrderActionsByOrderId : IGetRetrieve<Order>, IDeleteRetrieve<ApiResponse>
+{
 }
 
 public interface IPetActionsByStatus
@@ -53,16 +57,11 @@ public class ApiKeyResolver : IAsyncValueResolver
     }
 }
 
-public interface IOrderActions {
-    Task<User> PostAsync(User user);
-    Task<User> PutAsync(User user);
+public interface IOrderActions: IPost<Order, Order>, IPut<Order, Order> {
 }
 
-public interface IPetActionsByPetId 
+public interface IPetActionsByPetId : IGetRetrieve<Pet>, IDeleteRetrieve<ApiResponse>, IPost<Pet, Pet>
 {
-    Task<Pet> GetAsync();
-    Task<Pet> PostAsync(Pet pet);
-    Task<ApiResponse> DeleteAsync();
     IPetActionsByPetIdUploadImage UploadImage { get; }
 }
 
@@ -72,41 +71,21 @@ public interface IPetActionsByPetIdUploadImage
 
 }
 
-public interface IStore
+public interface IStoreInventory: IGetRetrieve<Dictionary<string, long>>
 {
-    IOrder Order { get; }
-    IStoreInventory Inventory { get; }
 }
 
-public interface IStoreInventory
+public interface IUser : IPost<User, ApiResponse>
 {
-    Task<Dictionary<string, long>> GetAsync();
-}
-
-[CakeHttpOptions("https://petstore.swagger.io/v2/", true, EnumSerialization.CamelCaseString)]
-public interface IPetStoreApi
-{
-    IStore Store { get; }
-    IPet Pet { get; }
-    IUser User { get; }
-}
-
-public interface IUser
-{
-    IPostUsersArray UsersWithArrayInputTask { get; }
     IUserStringIndexer this[string userName] { get; }
-    Task<ApiResponse> PostAsync(User pet);
 }
 
 public interface IPostUsersArray { 
 
 }
 
-public interface IUserStringIndexer
+public interface IUserStringIndexer: IDeleteRetrieve<ApiResponse>, IGetRetrieve<User>, IPut<User, User>
 {
-    Task<ApiResponse> IDeleteAsync();
-    Task<User> GetAsync();
-    Task<User> PutAsync(User user);
 
 }
 
@@ -118,6 +97,15 @@ public enum PetStatus
 public enum OrderStatus
 {
     Placed, Approved, Delivered
+}
+public class Order
+{
+    public int Id { get; set; }
+    public int PetId { get; set; }
+    public int Quantity { get; set; }
+    public DateTime ShipDate { get; set; }
+    public OrderStatus Status { get; set; }
+    public bool Complete { get; set; }
 }
 
 public class ApiResponse

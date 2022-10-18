@@ -1,21 +1,17 @@
-﻿//using DevEverywhere.CakeHttp.Inferfaces;
-using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Net.Mime;
-using System.Reflection;
+﻿using System.Xml;
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Xml;
+using System.Net.Mime;
 using System.Xml.Linq;
+using System.Text.Json;
+using System.Reflection;
+using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Xml.Serialization;
-using CakeHttp.Attributes;
-using CakeHttp.Converters;
-using CakeHttp.Enums;
+using System.Text.Encodings.Web;
+using DevEverywhere.CakeHttp.Enums;
+using System.Diagnostics.CodeAnalysis;
+using DevEverywhere.CakeHttp.Attributes;
+using DevEverywhere.CakeHttp.Converters;
 
 namespace DevEverywhere.CakeHttp;
 
@@ -46,15 +42,13 @@ public class CakeHttp : DispatchProxy
     private static readonly Func<HttpRequestMessage, Task> defaultRequestHandler = async r => { await Task.CompletedTask; };
     private static readonly Func<HttpResponseMessage, Task> defaultResponseHandler = async r => { await Task.CompletedTask; };
 
-    public static T CreateClient<T>()
+    public static TApi CreateClient<TApi>() where TApi : class
     {
-        Type apiType = typeof(T);
-        if (apiType.GetCustomAttribute<CakeHttpOptionsAttribute>() is { BaseUrl: { } url } initOptions)
+        Type apiType = typeof(TApi);
+        if (apiType.GetCustomAttribute<CakeHttpOptionsAttribute>() is{ } initOptions)
         {
-            dynamic t = Create<T, CakeHttp>()!;
-            t._httpClient = new HttpClient() { BaseAddress = new Uri(url) };
-            t._initOptions = initOptions;
-            return (T)t;
+            var httpClient = new HttpClient() { BaseAddress = new Uri(initOptions.BaseUrl) };
+            return CreateClient<TApi>(httpClient, initOptions, apiType);
         }
         throw new TypeInitializationException(
             apiType.FullName,
@@ -62,31 +56,44 @@ public class CakeHttp : DispatchProxy
         );
     }
 
-    public static T CreateClient<T>(string url, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString)
+    public static TApi CreateClient<TApi>(string url, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class
     {
-        dynamic t = Create<T, CakeHttp>()!;
-        t._httpClient = new HttpClient() { BaseAddress = new Uri(url) };
-        t._initOptions = new CakeHttpOptionsAttribute(url, camelCasePathAndQuery, enumSerialization);
-        return (T)t;
+        var client = new HttpClient() { BaseAddress = new Uri(url) };
+        var options = new CakeHttpOptionsAttribute(url, camelCasePathAndQuery, enumSerialization);
+        return CreateClient<TApi>(client, options, typeof(TApi));
     }
 
-    public static T CreateClient<T>(HttpClient client, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString)
+    public static TApi CreateClient<TApi>(HttpClient client, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class
     {
-        dynamic t = Create<T, CakeHttp>()!;
-        t._httpClient = client;
-        t._initOptions = new CakeHttpOptionsAttribute(client.BaseAddress!.ToString(), camelCasePathAndQuery, enumSerialization);
-        return (T)t;
+        CakeHttpOptionsAttribute options = new (client.BaseAddress!.ToString(), camelCasePathAndQuery, enumSerialization);
+        return CreateClient<TApi>(client, options, typeof(TApi));
     }
 
-    internal static object CreateClient<TApi>(HttpClient httpClient, CakeHttpOptionsAttribute opts) where TApi : class
+    internal static TApi CreateClient<TApi>(HttpClient httpClient, CakeHttpOptionsAttribute opts, Type apiType) where TApi : class
     {
+
+        httpClient.BaseAddress ??= new (opts.BaseUrl);
+
+        if (apiType.GetCustomAttributes<RequestHeaderAttribute>()?.ToList() is { } defaultRequestHeaders)
+            defaultRequestHeaders.ForEach(header =>
+            {
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Name, header.Value);
+            });
+
+        if (apiType.GetCustomAttributes<ContentHeaderAttribute>()?.ToList() is { } defaultRequestContentHeaders)
+            defaultRequestContentHeaders.ForEach(contentHeader =>
+            {
+                opts.RequestContentHeaders.Add(contentHeader.Name, contentHeader.Value);
+            });
+
         dynamic t = Create<TApi, CakeHttp>()!;
         t._httpClient = httpClient;
         t._initOptions = opts;
+
         return (TApi)t;
     }
 
-    private ICakeHttpInitOptions _initOptions = null!;
+    private CakeHttpOptionsAttribute _initOptions = null!;
     private HttpClient _httpClient = null!;
     private List<object?> _pathSegments = new();
 
@@ -95,6 +102,12 @@ public class CakeHttp : DispatchProxy
     {
         if (targetMethod is { Name: { } name, IsGenericMethod: { } isGeneric, ReturnType: { } methodReturnType })
         {
+            if (targetMethod.GetCustomAttributes<ContentHeaderAttribute>()?.ToList() is { } defaultRequestContentHeaders)
+                defaultRequestContentHeaders.ForEach(contentHeader =>
+                {
+                    if (!_initOptions.RequestContentHeaders.TryAdd(contentHeader.Name, contentHeader.Value))
+                        _initOptions.RequestContentHeaders[contentHeader.Name] = contentHeader.Value;
+                });
 
             if (name.StartsWith("get_") || name.StartsWith("set_"))
             {
@@ -146,12 +159,11 @@ public class CakeHttp : DispatchProxy
 
             var jsonOptions = _initOptions.JsonOptions;
 
-            using var request = CreateRequest(method, url, query, queryType, queryFromParameters, jsonOptions);
+            var request = CreateRequest(method, url, query, queryType, queryFromParameters, jsonOptions);
 
             var dynamicMethod = returnType == voidType ? invokeRequestMethod : getResponseMethod;
 
             return CakeHttp.ReturnAs(
-                dynamicMethod,
                 returnType,
                 _httpClient,
                 request,
@@ -159,7 +171,10 @@ public class CakeHttp : DispatchProxy
                 content,
                 contentType,
                 formData,
-                targetMethod.GetCustomAttributes<HeaderBaseAttribute>().ToArray(),
+                targetMethod
+                    .GetCustomAttributes<HeaderBaseAttribute>()
+                    .Concat(CreateContentHeaders(_initOptions.RequestContentHeaders))
+                    .ToArray(),
                 requestHandlers,
                 responseHandlers,
                 jsonOptions,
@@ -168,6 +183,12 @@ public class CakeHttp : DispatchProxy
 
         }
         return this;
+    }
+
+    private static IEnumerable<HeaderBaseAttribute> CreateContentHeaders(Dictionary<string, string> requestContentHeaders)
+    {
+        foreach ((string key, string value) in requestContentHeaders)
+            yield return new RequestHeaderAttribute(key, value);
     }
 
     private static (string?, Type, object?) Transform(ParameterInfo t, object? value)
@@ -205,7 +226,7 @@ public class CakeHttp : DispatchProxy
                     formData.Add((key ?? paramName, prm, prm is FileInfo));
                 }
 
-                else if (paramName != "query" || pInfo.GetCustomAttribute<AsQueryValueAttribute>() is not null)
+                else if (paramName != "query" && pInfo.GetCustomAttribute<AsQueryValueAttribute>() is not null)
                     queryFromParameters.Add(paramName, prm);
 
                 else if (paramName == "content")
@@ -232,10 +253,8 @@ public class CakeHttp : DispatchProxy
             }
         }
 
-#pragma warning disable CS8601 // Posible asignación de referencia nula
         responseHandlers -= defaultResponseHandler;
         requestHandlers -= defaultRequestHandler;
-#pragma warning restore CS8601 // Posible asignación de referencia nula
     }
 
     private static bool HasParameter<T>(object?[]? args, out T param, params int[] indexes)
@@ -248,7 +267,7 @@ public class CakeHttp : DispatchProxy
         return (param = default!, false).Item2;
     }
 
-    private static dynamic ReturnAs(MethodInfo method, Type returnType, params object?[] parameters)
+    private static dynamic ReturnAs(Type returnType, params object?[] parameters)
     {
         if (returnType == voidType)
             return invokeRequestMethod
@@ -286,6 +305,8 @@ public class CakeHttp : DispatchProxy
 
         var response = await httpClient.SendAsync(request, token);
 
+        request.Dispose();
+
         if (responseHandler is { })
             await responseHandler(response);
     }
@@ -298,7 +319,9 @@ public class CakeHttp : DispatchProxy
             await requestHandler(request);
 
         using HttpResponseMessage response = await httpClient.SendAsync(request, token);
-
+        
+        request.Dispose();
+        
         if (responseHandler is { })
             await responseHandler(response);
 
@@ -371,22 +394,21 @@ public class CakeHttp : DispatchProxy
     }
 
 
-    private static async Task SetContentAndHeaders(HttpRequestMessage message, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headerResolvers, JsonSerializerOptions jsonOptions)
+    private static async Task SetContentAndHeaders(HttpRequestMessage message, string method, object? content, Type? contentType, List<(string, object?, bool)> formData, HeaderBaseAttribute[] headers, JsonSerializerOptions jsonOptions)
     {
-        NameValueCollection contentHeaders = new();
+        var headersList = headers.ToList();
+        string? contentTypeHeader = null;
 
-        foreach (var resolver in headerResolvers)
+        for (int i = 0; i < headersList.Count; i++)
         {
-            var name = resolver.Name.ToLower();
-            var value = resolver switch
-            {
-                HeaderAsyncResolverAttribute<IAsyncValueResolver> async => await async.Resolver.ResolveAsync(name),
-                HeaderResolverAttribute<IValueResolver> normal => normal.Resolver.Resolve(name),
-                { } header => ((HeaderAttribute)header).Value,
-            };
-            if (!message.Headers.TryAddWithoutValidation(name, value))
-                contentHeaders.Add(name, value);
+            HeaderBaseAttribute? resolver = headersList[i];
+            (string name, string? value) = await GetHeaderNameAndValue(resolver);
+            if (message.Headers.TryAddWithoutValidation(name, value))
+                headersList.Remove(resolver);
+            if(name == "content-type")
+                contentTypeHeader = value;
         }
+
 
         if (method is POST_METHOD or PUT_METHOD)
         {
@@ -402,26 +424,44 @@ public class CakeHttp : DispatchProxy
                         ByteArrayContent fileStreamContent = new(memoryStream.GetBuffer());
                         formDataContent.Add(fileStreamContent, key, Path.GetFileName(file.FullName));
                     }
-                    else if (CreateContent(contentHeaders, content, contentType, jsonOptions) is { } nested)
+                    else if (CreateContent(contentTypeHeader, content, contentType, jsonOptions) is { } nested)
                         formDataContent.Add(nested, key);
 
                 }
                 message.Content = formDataContent;
             }
             else if (content is { })
-                message.Content = CreateContent(contentHeaders, content, contentType, jsonOptions);
+                message.Content = CreateContent(contentTypeHeader, content, contentType, jsonOptions);
 
-            if (message.Content?.Headers is { } headers)
-                foreach (var header in contentHeaders.AllKeys)
-                    if (header is { } && contentHeaders.GetValues(header) is { } values)
-                        foreach (var value in values)
-                            headers.TryAddWithoutValidation(header, value);
+            if (message.Content?.Headers is { } _headers)
+                for (int i = 0; i < headersList.Count; i++)
+                {
+                    HeaderBaseAttribute? resolver = headersList[i];
+                    (string name, string? value) = await GetHeaderNameAndValue(resolver);
+                    if(!_headers.Contains(name))
+                        _headers.TryAddWithoutValidation(name, value);
+                }
         }
     }
 
-    private static HttpContent? CreateContent(NameValueCollection contentHeaders, object? content, Type? contentType, JsonSerializerOptions jsonOptions)
+    private static async Task<(string, string)> GetHeaderNameAndValue(HeaderBaseAttribute headerAttr)
     {
-        return (contentHeaders["content-type"]?.ToLower(), content) switch
+        string name = headerAttr.Name.ToLower();
+        return (
+            name,
+            headerAttr switch
+            {
+                HeaderAsyncResolverAttribute<IAsyncValueResolver> async => await async.Resolver.ResolveAsync(name),
+                HeaderResolverAttribute<IValueResolver> normal => normal.Resolver.Resolve(name),
+                { } header => ((RequestHeaderAttribute)header).Value,
+            }
+        );
+            
+    }
+
+    private static HttpContent? CreateContent(string? contentTypeHeader, object? content, Type? contentType, JsonSerializerOptions jsonOptions)
+    {
+        return (contentTypeHeader, content) switch
         {
             ({ } contentTypes, { }) when contentTypes.Contains(MediaTypeNames.Application.Json) || content is JsonDocument || content is JsonElement || (content as string)?.Trim() is ['{', .., '}'] =>
                 JsonContent.Create(content, contentType!, mediaType: MediaTypeHeaderValue.Parse(contentTypes), jsonOptions),
