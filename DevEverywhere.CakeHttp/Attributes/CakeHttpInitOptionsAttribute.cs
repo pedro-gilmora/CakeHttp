@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using CakeHttp.Converters;
 using CakeHttp.Enums;
@@ -27,6 +28,7 @@ namespace CakeHttp.Attributes
         public Func<string, string> PathAndQueryFormatter => _pathAndQueryTransformer;
 
         public JsonSerializerOptions JsonOptions { get; }
+        public Dictionary<string, string> RequestContentHeaders { get; internal set; } = new ();
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
         public CakeHttpOptionsAttribute(string baseUrl, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString)
@@ -42,6 +44,12 @@ namespace CakeHttp.Attributes
             };
 
             JsonOptions.Converters.Insert(0, new EnumJsonConverter(enumSerialization));
+        }
+
+#pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
+        internal CakeHttpOptionsAttribute()
+#pragma warning restore CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
+        {
         }
     }
 

@@ -14,7 +14,7 @@ public static partial class CakeHttpJsonTests
     [SetUp]
     public static void SetUp()
     {
-        _cakeClient = CakeHttp.CreateClient<IPetStoreApi>()!;
+        _cakeClient = CakeHttp.CreateClient<IPetStoreApi>();
     }
 
     [Test]
@@ -22,6 +22,15 @@ public static partial class CakeHttpJsonTests
     {
         var inventory = await _cakeClient.Store.Inventory.GetAsync();
         inventory.Should().BeOfType<Dictionary<string, long>>();
+    }
+
+    [Test]
+    public static async Task ShouldPostUser()
+    {
+        Guid guid = Guid.NewGuid();
+        User user = new() { Username = $"pedro.gilmora_{guid}", Email = $"test_{guid}@test.com", Password = "!CakeHTTP." };
+        var response = await _cakeClient.User.PostAsync(user);
+        response.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
     }
 
     [Test]

@@ -1,5 +1,6 @@
 using CakeHttp.Attributes;
 using CakeHttp.Enums;
+using DevEverywhere.CakeHttp.Inferfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -10,14 +11,15 @@ namespace DevEverywhere.CakeHttp;
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
 
-public class Order
+
+[CakeHttpOptions("https://petstore.swagger.io/v2/", true, EnumSerialization.CamelCaseString)]
+[RequestHeader("Accept","application/json")]
+[ContentHeader("Content-Type","application/json")]
+public interface IPetStoreApi
 {
-    public int Id { get; set; }
-    public int PetId { get; set; }
-    public int Quantity { get; set; }
-    public DateTime ShipDate { get; set; }
-    public OrderStatus Status { get; set; }
-    public bool Complete { get; set; }
+    IStore Store { get; }
+    IPet Pet { get; }
+    IUser User { get; }
 }
 
 public interface IOrder
@@ -83,19 +85,9 @@ public interface IStoreInventory
     Task<Dictionary<string, long>> GetAsync();
 }
 
-[CakeHttpOptions("https://petstore.swagger.io/v2/", true, EnumSerialization.CamelCaseString)]
-public interface IPetStoreApi
+public interface IUser : IPost<User, ApiResponse>
 {
-    IStore Store { get; }
-    IPet Pet { get; }
-    IUser User { get; }
-}
-
-public interface IUser
-{
-    IPostUsersArray UsersWithArrayInputTask { get; }
     IUserStringIndexer this[string userName] { get; }
-    Task<ApiResponse> PostAsync(User pet);
 }
 
 public interface IPostUsersArray { 
@@ -118,6 +110,15 @@ public enum PetStatus
 public enum OrderStatus
 {
     Placed, Approved, Delivered
+}
+public class Order
+{
+    public int Id { get; set; }
+    public int PetId { get; set; }
+    public int Quantity { get; set; }
+    public DateTime ShipDate { get; set; }
+    public OrderStatus Status { get; set; }
+    public bool Complete { get; set; }
 }
 
 public class ApiResponse

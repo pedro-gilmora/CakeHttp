@@ -1,8 +1,100 @@
-﻿//namespace DevEverywhere.CakeHttp.Inferfaces;
+﻿namespace DevEverywhere.CakeHttp.Inferfaces;
 
-//public interface IHttpAction { 
-    
-//}
+public interface IHttpAction
+{
+}
+
+
+#region Empty
+public interface IDelete : IHttpAction
+{
+    Task DeleteAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IGet : IHttpAction
+{
+    Task GetAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+public interface IPost : IHttpAction
+{
+    Task PostAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPut : IHttpAction
+{
+    Task PutAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+#endregion
+
+#region TIn
+public interface IDelete<TIn> : IHttpAction
+{
+    Task DeleteAsync(TIn query, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPost<TIn> : IHttpAction
+{
+    Task PostAsync(TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPut<TIn> : IHttpAction
+{
+    Task PutAsync(TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+#endregion
+
+
+#region TInOut
+public interface IGet<TIn, TOut> : IHttpAction
+{
+    Task<TOut> GetAsync(TIn query, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+public interface IDelete<TIn, TOut> : IHttpAction
+{
+    Task<TOut> DeleteAsync(TIn query, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPost<TIn, TOut> : IHttpAction
+{
+    Task<TOut> PostAsync(TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPut<TIn, TOut> : IHttpAction
+{
+    Task<TOut> PutAsync(TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPostQuery<TIn, TOut> : IHttpAction
+{
+    Task<TOut> PostAsync<TQuery>(TQuery query, TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPutQuery<TIn, TOut> : IHttpAction
+{
+    Task<TOut> PutAsync<TQuery>(TQuery query, TIn content, Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+#endregion
+
+#region Out
+public interface IGetRetrieve<TOut> : IHttpAction
+{
+    Task<TOut> GetAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+public interface IDeleteRetrieve<TOut> : IHttpAction
+{
+    Task<TOut> DeleteAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPostRetrieve<TOut> : IHttpAction
+{
+    Task<TOut> PostAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+
+public interface IPutRetrieve<TOut> : IHttpAction
+{
+    Task<TOut> PutAsync(Func<HttpRequestMessage, Task>? beforeSend = null, Func<HttpResponseMessage, Task>? afterSend = null);
+}
+#endregion
 
 
 //#region Empty
