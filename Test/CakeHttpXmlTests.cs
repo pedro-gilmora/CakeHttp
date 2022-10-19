@@ -19,6 +19,7 @@ public static partial class CakeHttpXmlTests
     [Test]
     public static async Task ShouldMakeTheCall()
     {
+        //Just a comment to deploy
         var travellers = await _cakeClient.Traveler.GetAsync(new { page = 1 });
         travellers.Should().NotBeNull();
         travellers.Travelers.Items.Should().HaveCount(travellers.PerPage);
