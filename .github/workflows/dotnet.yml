@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     name: .NET 7 Build
-
     runs-on: ubuntu-latest
 
     steps:
@@ -28,12 +27,10 @@ jobs:
       run: dotnet build --no-restore -c Release
     - name: Test
       run: dotnet test --no-build --verbosity normal -c Release
-    - name: Print GitHub context variables
-      run: echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
 
   deploy:
     name: .NET 7 Deploy to Nuget package
-    if: github.ref_name == 'dev' && github.event_name == 'pull_request'
+    if: github.ref_name == 'dev' && github.event_name == 'push'
     runs-on: ubuntu-latest
   
     steps:
