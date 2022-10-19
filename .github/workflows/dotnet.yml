@@ -24,7 +24,6 @@ jobs:
       run: dotnet build --no-restore -c Release
     - name: Test
       run: dotnet test --no-build --verbosity normal -c Release
-    - name: Pack
 
   deploy:
     name: .NET 7 Deploy to Nuget package
@@ -32,7 +31,10 @@ jobs:
     runs-on: ubuntu-latest
   
     steps:
-      run: dotnet pack --no-build --verbosity normal -c Release
+    
+    - name: Pack
+      run: dotnet pack --no-build --verbosity normal -c '**/Release/*.nupkg
+
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
