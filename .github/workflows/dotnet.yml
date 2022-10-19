@@ -37,7 +37,7 @@ jobs:
     steps:
     
     - name: Pack
-      run: dotnet pack --project DevEverywhere/CakeHttp.csproj --verbosity normal -c Release
+      run: dotnet pack DevEverywhere/CakeHttp.csproj --verbosity normal -c Release
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
