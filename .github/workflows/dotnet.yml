@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
+    - name: Print GitHub context variables
+      run: echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
+      
     - uses: actions/checkout@v3
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -24,6 +28,8 @@ jobs:
       run: dotnet build --no-restore -c Release
     - name: Test
       run: dotnet test --no-build --verbosity normal -c Release
+    - name: Print GitHub context variables
+      run: echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
 
   deploy:
     name: .NET 7 Deploy to Nuget package
