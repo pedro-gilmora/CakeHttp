@@ -1,4 +1,4 @@
-name: .NET
+name: CakeHttp build and deploy
 
 on:
   push:
@@ -20,8 +20,13 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build --no-restore -c Release
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test --no-build --verbosity normal -c Release
     - name: Pack
-      run: dotnet pack --no-build --verbosity normal
+      run: dotnet pack --no-build --verbosity normal -c Release
+    - name: Publish to Nuget
+      run: |
+        package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
+        echo $package
+        dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
