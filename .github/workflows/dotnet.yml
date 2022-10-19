@@ -3,8 +3,6 @@ name: CakeHttp build and deploy
 on:
   push:
     branches: [ "**" ]
-  pull_request:
-    branches: [ "dev" ]
 
 jobs:
   build:
@@ -30,14 +28,15 @@ jobs:
 
   deploy:
     name: .NET 7 Deploy to Nuget package
-    if: github.ref_name == 'dev' && github.event_name == 'push'
+    if: github.ref_name == 'dev'
     needs: build
     runs-on: ubuntu-latest
+    
   
     steps:
     
     - name: Pack
-      run: dotnet pack DevEverywhere/CakeHttp.csproj --verbosity normal -c Release
+      run: dotnet pack DevEverywhere.CakeHttp/CakeHttp.csproj --verbosity normal -c Release
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
