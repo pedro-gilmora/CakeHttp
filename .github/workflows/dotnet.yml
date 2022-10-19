@@ -26,7 +26,7 @@ jobs:
     - name: Build
       run: dotnet build --no-restore -c Release
     - name: Test
-      run: dotnet test --no-build --verbosity normal -c Release
+      run: dotnet test Test/CakeHttp.Tests.csproj --no-build --verbosity normal -c Release
 
   deploy:
     name: .NET 7 Deploy to Nuget package
@@ -37,7 +37,7 @@ jobs:
     steps:
     
     - name: Pack
-      run: dotnet pack --no-build --verbosity normal -c Release
+      run: dotnet pack --project DevEverywhere/CakeHttp.csproj --verbosity normal -c Release
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
