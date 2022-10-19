@@ -39,7 +39,7 @@ jobs:
     steps:
     
     - name: Pack
-      run: dotnet pack --no-build --verbosity normal -c '**/Release/*.nupkg
+      run: dotnet pack --no-build --verbosity normal -c '**/Release/*.nupkg'
 
     - name: Publish to Nuget
       run: |
