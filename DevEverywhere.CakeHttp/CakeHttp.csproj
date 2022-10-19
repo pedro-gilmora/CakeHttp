@@ -8,8 +8,18 @@
 		<Authors>DevEverywhere</Authors>
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<PackageId>$(Authors).$(AssemblyName)</PackageId>
-		<PackageVersion>$([System.DateTime]::Now.ToString(&quot;1.MM.dd&quot;))</PackageVersion>
-		<AssemblyVersion>$([System.DateTime]::Now.ToString(&quot;1.MM.dd&quot;))</AssemblyVersion>
+		<PackageVersion>
+      1.
+      $([System.DateTime]::Now.Year).
+      $([System.DateTime]::Now.DayOfYear).
+      $([System.Convert]::ToUInt16(
+        $([MSBuild]::Divide(
+            $([System.DateTime]::Now.TimeOfDay.TotalMinutes),
+            15
+        ))
+      ))
+    </PackageVersion>
+		<AssemblyVersion>1.0.0</AssemblyVersion>
 		<Title>$(AssemblyName): Making HTTP requests easier</Title>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
