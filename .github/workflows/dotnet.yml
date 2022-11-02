@@ -28,7 +28,7 @@ jobs:
 
   deploy:
     name: .NET 7 Deploy to Nuget package
-    if: github.ref_name == 'dev'
+    if: github.ref_name == 'dev' || github.ref_name == 'master'
     needs: build
     runs-on: ubuntu-latest
     
@@ -44,5 +44,11 @@ jobs:
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
-        echo $package
+
+        if [[ ${BRANCH_NAME} = 'dev' ]]
+          newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')"
+          mv $package $newPackageName
+          package=$newPackageName
+        fi
+
         dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
