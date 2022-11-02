@@ -100,8 +100,8 @@ public enum OrderStatus
 }
 public class Order
 {
-    public int Id { get; set; }
-    public int PetId { get; set; }
+    public long Id { get; set; }
+    public long PetId { get; set; }
     public int Quantity { get; set; }
     public DateTime ShipDate { get; set; }
     public OrderStatus Status { get; set; }
@@ -134,14 +134,14 @@ public class Pet
 }
 public class Tag
 {
-    public int Id { get; set; }
+    public long Id { get; set; }
     public string Name { get; set; }
 }
 
 public class User
 {
     public long Id { get; set; }
-public string Username { get; set; }
+    public string Username { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
     public string Email { get; set; }
