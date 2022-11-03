@@ -42,13 +42,11 @@ jobs:
     - name: Pack
       run: dotnet pack DevEverywhere.CakeHttp/CakeHttp.csproj --verbosity normal -c Release
     - name: Publish to Nuget
+      
       run: |
-        package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
+        package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)";
 
         if [[ ${BRANCH_NAME} = 'dev' ]]
-          newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')"
-          mv $package $newPackageName
-          package=$newPackageName
-        fi
+          newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')" ; mv $package $newPackageName ; package=$newPackageName ;
 
-        dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json;
