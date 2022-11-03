@@ -13,7 +13,7 @@ jobs:
     
     - name: Print GitHub context variables For Pull Request
       run: |
-        echo "$({github.ref_name}' = 'dev')"
+        echo "$('{github.ref_name}' = 'dev')"
         echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
       
     - uses: actions/checkout@v3
