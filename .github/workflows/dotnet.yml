@@ -9,13 +9,7 @@ jobs:
     name: .NET 7 Build
     runs-on: ubuntu-latest
 
-    steps:
-    
-    - name: Print GitHub context variables For Pull Request
-      run: |
-        echo '${{ github.ref_name }}' = 'dev' ? 'Es DEV' : 'No es DEV'
-        echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
-      
+    steps:      
     - uses: actions/checkout@v3
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -47,7 +41,7 @@ jobs:
       
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)";
-        if [ ${github.ref_name} = 'dev' ]; then
+        if [ '${{ github.ref_name }}' = 'dev' ]; then
           newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')"; 
           mv $package $newPackageName; 
           package=$newPackageName;
