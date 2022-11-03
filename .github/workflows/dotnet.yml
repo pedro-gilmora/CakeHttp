@@ -47,6 +47,8 @@ jobs:
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)";
 
         if [[ ${BRANCH_NAME} = 'dev' ]]
-          newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')" ; mv $package $newPackageName ; package=$newPackageName ;
-
+          newPackageName="$(echo $package | sed 's/CakeHttp\./CakeHttp\.Dev\./')" ; 
+          mv $package $newPackageName ; 
+          package=$newPackageName ;
+        fi
         dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json;
