@@ -1,15 +1,1 @@
-﻿/*
-
-
-
-
-
-
-
-
-
-
-
-
-
-*/
+﻿/*IGet</* status *\/PetStatus, JsonResponse<List<Pet>>>:PetStatus:/* status *\/:True*/

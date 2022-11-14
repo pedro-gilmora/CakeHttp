@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using System.ComponentModel.Design.Serialization;
 using System.Data;
 using System.Reflection.Metadata.Ecma335;
+using Microsoft.CodeAnalysis.Text;
 
 namespace HttPie.Generator;
 
@@ -85,19 +86,30 @@ public class SdkApiImplementor : IIncrementalGenerator
         {
             if (symbol is ITypeSymbol { } cls)
             {
-                if (cls.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is InterfaceDeclarationSyntax { BaseList.Types:{  } baseTypes } iFace)
+                if (cls.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is InterfaceDeclarationSyntax { BaseList.Types: { } baseTypes } iFace)
                 {
                     foreach (var baseTypeDecl in baseTypes)
                         if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList: { LessThanToken: { } ltk, GreaterThanToken: { } gtk, Arguments: { } args } } type)
                         {
-                            if (baseTypeDecl.FindTrivia(ltk.SpanStart, tr => tr.IsKind(SyntaxKind.MultiLineCommentTrivia | SyntaxKind.SingleLineCommentTrivia)) is { } triv)
-                                trivias.Add(triv.ToFullString());
+                            var comments = baseTypeDecl.DescendantTrivia()
+                                                       .Where(tr => tr.IsKind(SyntaxKind.MultiLineCommentTrivia))
+                                                       .ToImmutableArray();
+                            // TQuery
+                            if (comments is [var tr] && TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr.Span))
+                                trivias.Add($"{type}:{args[0]}:{tr.ToFullString()}:{TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr.Span)}");
+                            //TContent
+                            if (comments is [_, var tr1] && TextSpan.FromBounds(args[0].SpanStart, args[1].SpanStart).Contains(tr1.Span) is bool r && r)
+                                trivias.Add($"{type}:{args[0]}:{tr1.ToFullString()}:{r}");
+                            TResponse
+                            if (comments is [_,_,var tr2] && TextSpan.FromBounds(args[1].SpanStart, args[2].SpanStart).Contains(tr2.Span))
+                                trivias.Add($"{type}:{args[0]}:{tr2.ToFullString()}:{TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr2.Span)}");
+
                         }
-                        //        if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList:{ Arguments: { } types } })
-                        //            foreach (var implTypes in types)
-                        //                if (implTypes is GenericNameSyntax { TypeArgumentList: { Arguments: { } Impl } })
-                        //if (baseTypeDecl is { RawKind: (int)SyntaxKind.MultiLineCommentTrivia, Span.Length: > 0 } coment)
-                        //    trivias.Add(baseTypeDecl.ToString() + baseTypeDecl.FullSpan.ToString());
+                    //        if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList:{ Arguments: { } types } })
+                    //            foreach (var implTypes in types)
+                    //                if (implTypes is GenericNameSyntax { TypeArgumentList: { Arguments: { } Impl } })
+                    //if (baseTypeDecl is { RawKind: (int)SyntaxKind.MultiLineCommentTrivia, Span.Length: > 0 } coment)
+                    //    trivias.Add(baseTypeDecl.ToString() + baseTypeDecl.FullSpan.ToString());
                 }
 
                 // detect attributes
@@ -108,7 +120,7 @@ public class SdkApiImplementor : IIncrementalGenerator
             }
 
         }
-        productionContext.AddSource($"{typeName}g.cs", $"/*{trivias.Join("\n").Replace("*/","*\\/")}*/");
+        productionContext.AddSource($"{typeName}g.cs", $"/*{trivias.Join("\n").Replace("*/", "*\\/")}*/");
         //        try
         //        {
         //            var containingNameSpace = typeSymbol.ContainingNamespace.ToString();
