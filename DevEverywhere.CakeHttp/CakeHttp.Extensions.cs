@@ -34,7 +34,7 @@ public static class CakeHttpExtensions
         }
     }
 
-    public static IServiceCollection AddCakeHttp<TApi>(this IServiceCollection serviceCollection, string _url, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class 
+    public static IServiceCollection AddCakeHttp<TApi>(this IServiceCollection serviceCollection, string _url, bool camelCasePathAndQuery = false, PropertyCasing enumSerialization = PropertyCasing.CamelCase) where TApi : class 
     {
         AddCakeHttp<TApi>(serviceCollection, new CakeHttpOptionsAttribute(_url, camelCasePathAndQuery, enumSerialization));        
         return serviceCollection;

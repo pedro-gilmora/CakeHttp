@@ -1,47 +1,47 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461;net6.0</TargetFrameworks>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-		<LangVersion>latest</LangVersion>
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>11.0</LangVersion>
 		<Authors>DevEverywhere</Authors>
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<PackageId>$(Authors).$(AssemblyName)</PackageId>
 		<PackageVersion>
-      1.
-      $([System.DateTime]::Now.Year).
-      $([System.DateTime]::Now.DayOfYear).
-      $([System.Convert]::ToUInt16(
-        $([MSBuild]::Divide(
-            $([System.DateTime]::Now.TimeOfDay.TotalMinutes),
-            15
-        ))
-      ))
-    </PackageVersion>
+			1.
+			$([System.DateTime]::Now.ToString('yy')).
+			$([System.DateTime]::Now.DayOfYear).
+			$([System.Convert]::ToUInt16(
+			$([MSBuild]::Divide(
+			$([System.DateTime]::Now.TimeOfDay.TotalMinutes),
+			15
+			))
+			))
+		</PackageVersion>
 		<AssemblyVersion>1.0.0</AssemblyVersion>
 		<Title>$(AssemblyName): Making HTTP requests easier</Title>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<SignAssembly>False</SignAssembly>
 		<Description>Define API structure and create easy HTTP requests based on the paths of properties and methods</Description>
-  </PropertyGroup>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Extensiones.cs" />
-  </ItemGroup>
+	<ItemGroup>
+		<Compile Remove="Extensiones.cs" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="IndexRange" Version="1.0.2" />
-    <PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="6.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
-    <PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1" />
-    <PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="System.Net.Http.Json" Version="6.0.0" />
-    <PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="System.Reflection.DispatchProxy" Version="4.7.1" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="IndexRange" Version="1.0.2" PrivateAssets="all" />
+		<PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="Microsoft.CSharp" Version="4.7.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.1" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Extensions.Http.Polly" Version="6.0.10" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Extensions.Options" Version="6.0.0" />
+		<PackageReference Include="Polly.Contrib.WaitAndRetry" Version="1.1.1"  PrivateAssets="all"/>
+		<PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="System.Net.Http.Json" Version="6.0.0" />
+		<PackageReference Condition=" '$(TargetFramework)' != 'net6.0' " Include="System.Reflection.DispatchProxy" Version="4.7.1" PrivateAssets="all" />
+	</ItemGroup>
 
 </Project>

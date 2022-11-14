@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<GeneratedFolder>Clients</GeneratedFolder>
+		<CompilerGeneratedFilesOutputPath>$(GeneratedFolder)\$(TargetFramework)</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+		<PackageReference Include="FluentAssertions" Version="6.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.0" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="3.2.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+		 
+	<!--👇 Exclude everything in the base folder-->
+
+	<ItemGroup>	 
+		<Compile Remove="$(GeneratedFolder)/**/*.cs" />	 
+		<Compile Remove="Clients\**" />	 
+		<EmbeddedResource Remove="Clients\**" />	 
+		<None Remove="Clients\**" />	 
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="PetStoreClientTests.cs" />
+	  <Compile Remove="TravellersClientTests.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\HttPie.Generator\HttPie.Generator.csproj" OutputItemType="Analyzer" />
+	</ItemGroup>
+</Project>

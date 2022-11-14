@@ -59,14 +59,14 @@ public class CakeHttp : DispatchProxy
         );
     }
 
-    public static TApi CreateClient<TApi>(string url, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class
+    public static TApi CreateClient<TApi>(string url, bool camelCasePathAndQuery = false, PropertyCasing enumSerialization = PropertyCasing.CamelCase) where TApi : class
     {
         var client = new HttpClient() { BaseAddress = new Uri(url) };
         var options = new CakeHttpOptionsAttribute(url, camelCasePathAndQuery, enumSerialization);
         return CreateClient<TApi>(client, options, typeof(TApi));
     }
 
-    public static TApi CreateClient<TApi>(HttpClient client, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString) where TApi : class
+    public static TApi CreateClient<TApi>(HttpClient client, bool camelCasePathAndQuery = false, PropertyCasing enumSerialization = PropertyCasing.CamelCase) where TApi : class
     {
         CakeHttpOptionsAttribute options = new (client.BaseAddress!.ToString(), camelCasePathAndQuery, enumSerialization);
         return CreateClient<TApi>(client, options, typeof(TApi));
@@ -426,16 +426,6 @@ public class CakeHttp : DispatchProxy
         };
     }
 
-    private static bool HasParameter<T>(object?[]? args, out T param, params int[] indexes)
-    {
-        if (args is { })
-            foreach (var idx in indexes)
-                if (args.Length > idx && args[^idx] is T _param)
-                    return (param = _param, true).Item2;
-
-        return (param = default!, false).Item2;
-    }
-
     private static dynamic ReturnAs(Type returnType, params object?[] parameters)
     {
         if (returnType == voidType)
@@ -485,10 +475,8 @@ public class CakeHttp : DispatchProxy
                 {
                     if (isFileName && val is FileInfo file)
                     {
-                        using MemoryStream memoryStream = new();
-                        file.OpenRead().CopyTo(memoryStream);
-                        ByteArrayContent fileStreamContent = new(memoryStream.GetBuffer());
-                        formDataContent.Add(fileStreamContent, key, Path.GetFileName(file.FullName));
+                        var fileStream = file.OpenRead();
+                        FileStreamToByteArrayContent(formDataContent, key, file, fileStream);
                     }
                     else if (CreateContent(contentTypeHeader, content, contentType, jsonOptions) is { } nested)
                         formDataContent.Add(nested, key);
@@ -508,6 +496,14 @@ public class CakeHttp : DispatchProxy
                         _headers.TryAddWithoutValidation(name, value);
                 }
         }
+    }
+
+    private static void FileStreamToByteArrayContent(MultipartFormDataContent formDataContent, string key, FileInfo file, FileStream fileStream)
+    {
+        using MemoryStream memoryStream = new();
+        fileStream.CopyTo(memoryStream);
+        ByteArrayContent byteArratyContent = new(memoryStream.GetBuffer());
+        formDataContent.Add(byteArratyContent, key, Path.GetFileName(file.FullName));
     }
 
     private static async Task<(string, string)> GetHeaderNameAndValue(HeaderBaseAttribute headerAttr)

@@ -6,18 +6,19 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-namespace DevEverywhere.CakeHttp;
+namespace DevEverywhere.CakeHttp.Tests;
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
 
 
-[CakeHttpOptions("https://petstore.swagger.io/v2/", true, EnumSerialization.CamelCaseString)]
+[CakeHttpOptions("https://petstore.swagger.io/v2/", true, PathAndSegmentCasing.CamelCase)]
 [RequestHeader("Accept","application/json")]
 [ContentHeader("Content-Type","application/json")]
 public interface IPetStoreApi
 {
     IStore Store { get; }
     IPet Pet { get; }
+    //1
     IUser User { get; }
 }
 

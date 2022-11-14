@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+		<!--<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<GeneratedFolder>Clients</GeneratedFolder>
+		<CompilerGeneratedFilesOutputPath>$(GeneratedFolder)\$(TargetFramework)</CompilerGeneratedFilesOutputPath>-->
+	</PropertyGroup>
+
+	<!--<ItemGroup>
+		 --><!--👇 Exclude everything in the base folder--><!-- 
+		<Compile Remove="$(GeneratedFolder)/**/*.cs" />
+	</ItemGroup>-->
+
+	<!--<ItemGroup>
+	  <Compile Include="Clients\*\HttPie.Generator\HttPie.Generator.SdkApiImplementor\*" />
+	</ItemGroup>-->
+	
+  <ItemGroup>		
+		<ProjectReference Include="..\HttPie.Generator\HttPie.Generator.csproj" OutputItemType="Analyzer" />
+	</ItemGroup>
+
+</Project>

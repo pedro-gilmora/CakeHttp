@@ -28,10 +28,10 @@ public static partial class CakeHttpXmlTests
     [Test]
     public static async Task ShouldMakeIndexerTheCall()
     {
-        const int Id = 11187;
-        var traveller = await _cakeClient.Traveler[Id].GetAsync();
+        const int id = 11187;
+        var traveller = await _cakeClient.Traveler[id].GetAsync();
         traveller.Should().NotBeNull();
-        traveller.Id.Should().Be(Id);
+        traveller.Id.Should().Be(id);
     }
 
 }

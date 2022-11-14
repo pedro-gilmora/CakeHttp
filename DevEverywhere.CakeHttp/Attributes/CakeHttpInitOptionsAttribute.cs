@@ -13,7 +13,7 @@ public sealed class CakeHttpOptionsAttribute : Attribute, ICakeHttpInitOptions
     internal Func<string, string> _pathAndQueryTransformer;
 
     public string BaseUrl { get; }
-    public EnumSerialization EnumSerialization { get; set; }
+    public PropertyCasing EnumSerialization { get; set; }
     public bool CamelCasePathAndQuery
     {
         get => _camelCasePathAndQuery;
@@ -30,7 +30,7 @@ public sealed class CakeHttpOptionsAttribute : Attribute, ICakeHttpInitOptions
     public Dictionary<string, string> RequestContentHeaders { get; internal set; } = new ();
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
-    public CakeHttpOptionsAttribute(string baseUrl, bool camelCasePathAndQuery = false, EnumSerialization enumSerialization = EnumSerialization.CamelCaseString)
+    public CakeHttpOptionsAttribute(string baseUrl, bool camelCasePathAndQuery = false, PropertyCasing enumSerialization = PropertyCasing.CamelCase)
 #pragma warning restore CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
     {
         BaseUrl = baseUrl;

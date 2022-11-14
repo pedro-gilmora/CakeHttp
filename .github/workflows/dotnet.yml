@@ -4,16 +4,15 @@ on:
   push:
     branches: [ "**" ]
 
+defaults:
+  runs-on: ubuntu-latest
+
 jobs:
   build:
     name: .NET 7 Build
     runs-on: ubuntu-latest
 
-    steps:
-    
-    - name: Print GitHub context variables For Pull Request
-      run: echo 'Branch => ${{ github.ref_name }}, Action => ${{ github.event_name }}'
-      
+    steps:      
     - uses: actions/checkout@v3
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -21,10 +20,8 @@ jobs:
         dotnet-version: 7.0.x
     - name: Restore dependencies
       run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore -c Release
     - name: Test
-      run: dotnet test Test/CakeHttp.Tests.csproj --no-build --verbosity normal -c Release
+      run: dotnet test Test/CakeHttp.Tests.csproj --verbosity normal -c Release
 
   deploy:
     name: .NET 7 Deploy to Nuget package
@@ -44,5 +41,4 @@ jobs:
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
-        echo $package
         dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json

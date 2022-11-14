@@ -6,9 +6,9 @@ namespace DevEverywhere.CakeHttp.Converters;
 
 public class EnumJsonConverter : JsonConverter<Enum>
 {
-    internal EnumSerialization _enumSerialization;
+    internal PropertyCasing _enumSerialization;
 
-    internal EnumJsonConverter(EnumSerialization enumSerialization)
+    internal EnumJsonConverter(PropertyCasing enumSerialization)
     {
         _enumSerialization = enumSerialization;
     }
@@ -41,15 +41,18 @@ public class EnumJsonConverter : JsonConverter<Enum>
         }
     }
 
-    internal static object GetSuitableValue(Enum value, EnumSerialization _enumSerialization)
+    internal static object GetSuitableValue(Enum value, PropertyCasing _enumSerialization)
     {
-        if (_enumSerialization.HasFlag(EnumSerialization.String) && value.ToString().Trim() is { } str)
+        if (value.ToString().Trim() is { } str)
         {
             return _enumSerialization switch
             {
-                EnumSerialization.CamelCaseString => JsonNamingPolicy.CamelCase.ConvertName(str),
-                EnumSerialization.UpperCaseString => str.ToUpperInvariant(),
-                EnumSerialization.LowerCaseString => str.ToLowerInvariant(),
+                PropertyCasing.CamelCase => JsonNamingPolicy.CamelCase.ConvertName(str),
+                PropertyCasing.UpperCase => str.ToUpperInvariant(),
+                PropertyCasing.LowerCase => str.ToLowerInvariant(),
+                PropertyCasing.PascalCase => str.Length > 0 
+                    ? (str[0].ToString().ToUpperInvariant() + (str.Length > 1 ? str[1..] : "")).Replace("_", "") 
+                    : "",
                 _ => str
             };
         }

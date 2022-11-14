@@ -4,6 +4,7 @@ using NUnit.Framework;
 using FluentAssertions;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using DevEverywhere.CakeHttp.Tests;
 
 namespace DevEverywhere.CakeHttp;
 

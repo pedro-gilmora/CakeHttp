@@ -1,10 +1,9 @@
 ﻿namespace DevEverywhere.CakeHttp.Enums;
 
-public enum EnumSerialization : byte
+public enum PropertyCasing : byte
 {
-    Number = 1,
-    String = 2,
-    CamelCaseString = 6,
-    UpperCaseString = 10,
-    LowerCaseString = 18
+    CamelCase,
+    UpperCase,
+    LowerCase,
+    PascalCase
 }
