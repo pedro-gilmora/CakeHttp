@@ -112,7 +112,7 @@ public interface IGet<TResponse>
 
 public interface IGet<TQuery, TResponse>
 {
-    Task<TResponse> GetAsync(Query<TQuery> query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
+    Task<TResponse> GetAsync(TQuery query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
 }
 
 public interface IDelete<TResponse>
@@ -122,7 +122,7 @@ public interface IDelete<TResponse>
 
 public interface IDelete<TQuery, TResponse>
 {
-    Task<TResponse> DeleteAsync(Query<TQuery> query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
+    Task<TResponse> DeleteAsync(TQuery query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
 }
 
 public interface IPost<TResponse>
@@ -137,7 +137,7 @@ public interface IPost<TContent, TResponse>
 
 public interface IPost<TQuery, TContent, TResponse>
 {
-    Task<TResponse> PostAsync(Query<TQuery> query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
+    Task<TResponse> PostAsync(TQuery query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
 }
 
 public interface IPut<TResponse>
@@ -152,7 +152,7 @@ public interface IPut<TContent, TResponse>
 
 public interface IPut<TQuery, TContent, TResponse>
 {
-    Task<TResponse> PutAsync(Query<TQuery> query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
+    Task<TResponse> PutAsync(TQuery query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
 }
 
 public interface IPatch<TResponse>
@@ -167,7 +167,7 @@ public interface IPatch<TContent, TResponse>
 
 public interface IPatch<TQuery, TContent, TResponse>
 {
-    Task<TResponse> PatchAsync(Query<TQuery> query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
+    Task<TResponse> PatchAsync(TQuery query, TContent content, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);
 }
 
 //#region JSON
@@ -190,7 +190,7 @@ public interface IPatch<TQuery, TContent, TResponse>
 //#region TIn
 //public interface IJsonDelete<TQuery> : IHttpAction
 //{
-//    Task DeleteAsync(Query<TQuery> query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default);
+//    Task DeleteAsync(TQuery query, Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default);
 //}
 
 //public interface IJsonPost<TIn> : IHttpAction

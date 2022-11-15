@@ -6,6 +6,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="ApiGenerator.cs" />
 	  <Compile Remove="ApiGenerator.old.cs" />
 	  <Compile Remove="ApiMetadata.old.cs" />
 	</ItemGroup>

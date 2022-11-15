@@ -66,7 +66,7 @@ public class SdkApiImplementor : IIncrementalGenerator
 
         AgentDescriptior agentDescriptor = new(baseUrl, agentName, pathCasing, queryCasing, propertyCasing, pathCasingFn, queryCasingFn, propertyCasingFn);
 
-        CollectAndBuildRelatedTypes(fileAndContent, productionContext, typeSymbol, clientName, agentDescriptor, root);
+        CollectAndBuildRelatedTypes(fileAndContent, productionContext, semanticModel, typeSymbol, clientName, agentDescriptor, root);
 
         foreach (var kv in fileAndContent)
         {
@@ -76,40 +76,48 @@ public class SdkApiImplementor : IIncrementalGenerator
 
     }
 
-    private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SourceProductionContext productionContext, ITypeSymbol typeSymbol, string typeName, AgentDescriptior agentDescriptor, bool root)
+    private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SourceProductionContext productionContext, SemanticModel semanticModel, ITypeSymbol typeSymbol, string typeName, AgentDescriptior agentDescriptor, bool root)
     {
-        List<string> trivias = new();
+        Dictionary<string, string> trivias = new(/*SymbolEqualityComparer.Default*/);
+        try
+        {
+            collect(typeSymbol, true);
 
-        collect(typeSymbol, true);
+            productionContext.AddSource($"{typeName}g.cs", $"/*{trivias.Join(u => $"{u.Key}: {u.Value}", "\n").Replace("*/", "*\\/")}*/");
+        }
+        catch (Exception e)
+        {
+            productionContext.AddSource($"{typeName}g.cs", $"/*{e}*/");
+        }
 
         void collect(ISymbol symbol, bool root = false)
         {
-            if (symbol is ITypeSymbol { } cls)
+            if (symbol is ITypeSymbol cls)
             {
-                if (cls.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is InterfaceDeclarationSyntax { BaseList.Types: { } baseTypes } iFace)
+                foreach (var sr in cls.DeclaringSyntaxReferences)
                 {
-                    foreach (var baseTypeDecl in baseTypes)
-                        if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList: { LessThanToken: { } ltk, GreaterThanToken: { } gtk, Arguments: { } args } } type)
+                    if (sr.GetSyntax() is InterfaceDeclarationSyntax { BaseList.Types: { } baseTypes } iFace)
+                    {
+                        foreach (var baseTypeDecl in baseTypes)
                         {
-                            var comments = baseTypeDecl.DescendantTrivia()
-                                                       .Where(tr => tr.IsKind(SyntaxKind.MultiLineCommentTrivia))
-                                                       .ToImmutableArray();
-                            // TQuery
-                            if (comments is [var tr] && TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr.Span))
-                                trivias.Add($"{type}:{args[0]}:{tr.ToFullString()}:{TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr.Span)}");
-                            //TContent
-                            if (comments is [_, var tr1] && TextSpan.FromBounds(args[0].SpanStart, args[1].SpanStart).Contains(tr1.Span) is bool r && r)
-                                trivias.Add($"{type}:{args[0]}:{tr1.ToFullString()}:{r}");
-                            TResponse
-                            if (comments is [_,_,var tr2] && TextSpan.FromBounds(args[1].SpanStart, args[2].SpanStart).Contains(tr2.Span))
-                                trivias.Add($"{type}:{args[0]}:{tr2.ToFullString()}:{TextSpan.FromBounds(ltk.SpanStart, args[0].SpanStart).Contains(tr2.Span)}");
+                            string contentType = null, responseType = "Json", queryParameterName = "Json";
+                            if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList: { LessThanToken: { } ltk, Arguments: { Count: int argsCount and > 0 } args } } type)
+                            {
+                                var comments = baseTypeDecl
+                                    .DescendantTrivia()
+                                    .Where(tr => tr.IsKind(SyntaxKind.MultiLineCommentTrivia))
+                                    .ToSyntaxTriviaList();
 
+                                var paramsType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type;
+                                
+                                for (int i = 0, startPoint = ltk.FullSpan.End, endPoint = ltk.FullSpan.End; i < argsCount; i++)
+                                {
+                                    (TypeSyntax type, INamedTypeSymbol s, ITypeParameterSymbol x) = (args[i], paramsType.TypeArguments[i], paramsType.TypeParameters[1]);
+                                    
+                                }
+                            }
                         }
-                    //        if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList:{ Arguments: { } types } })
-                    //            foreach (var implTypes in types)
-                    //                if (implTypes is GenericNameSyntax { TypeArgumentList: { Arguments: { } Impl } })
-                    //if (baseTypeDecl is { RawKind: (int)SyntaxKind.MultiLineCommentTrivia, Span.Length: > 0 } coment)
-                    //    trivias.Add(baseTypeDecl.ToString() + baseTypeDecl.FullSpan.ToString());
+                    }
                 }
 
                 // detect attributes
@@ -120,7 +128,6 @@ public class SdkApiImplementor : IIncrementalGenerator
             }
 
         }
-        productionContext.AddSource($"{typeName}g.cs", $"/*{trivias.Join("\n").Replace("*/", "*\\/")}*/");
         //        try
         //        {
         //            var containingNameSpace = typeSymbol.ContainingNamespace.ToString();
@@ -247,6 +254,22 @@ public class SdkApiImplementor : IIncrementalGenerator
         //        {
         //            fileAndContent.Add($"{typeName}.g.cs", e.ToString());
         //        }
+    }
+
+    private static void FindConfigComments(SemanticModel semanticModel, ref string contentType, ref string responseType, ref string queryParameterName, SyntaxTrivia comment, TypeSyntax type)
+    {
+        switch (((INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type).Name)
+        {
+            case "TQuery":
+                queryParameterName = comment.ToString();
+                break;
+            case "TContent":
+                contentType = comment.ToString();
+                break;
+            case "TResponse":
+                responseType = comment.ToString();
+                break;
+        }
     }
 
     private static void GetClientBasicConfig(AttributeData attributeData, out string baseUrl, out Casing pathCasing, out Casing queryCasing, out Casing propertyCasing)
@@ -506,7 +529,7 @@ public class SdkApiImplementor : IIncrementalGenerator
         };
     }
 
-    private static string GenerateProperty(Dictionary<string, string> fileAndContent, HashSet<string> usings, IPropertySymbol prop, SourceProductionContext productionContext, AgentDescriptior agentDescriptor)
+    private static string GenerateProperty(SemanticModel semanticModel, Dictionary<string, string> fileAndContent, HashSet<string> usings, IPropertySymbol prop, SourceProductionContext productionContext, AgentDescriptior agentDescriptor)
     {
         var type = prop.Type;
         string
@@ -518,13 +541,13 @@ public class SdkApiImplementor : IIncrementalGenerator
         {
             getPropertyParameters(out var paramsDefinition, out var paramsSegments);
 
-            CollectAndBuildRelatedTypes(fileAndContent, productionContext, type, implName, agentDescriptor, false);
+            CollectAndBuildRelatedTypes(fileAndContent, productionContext, semanticModel, type, implName, agentDescriptor, false);
             return $@"
         
         public {GetType(usings, type)} this[{paramsDefinition}] => new {implName}(_agent, {pathStart}{paramsSegments}"");";
         }
 
-        CollectAndBuildRelatedTypes(fileAndContent, productionContext, type, implName, agentDescriptor, false);
+        CollectAndBuildRelatedTypes(fileAndContent, productionContext, semanticModel, type, implName, agentDescriptor, false);
 
         string propName = prop.Name;
         return $@"
@@ -573,7 +596,6 @@ internal class NamespaceComparer : IEqualityComparer<string>
         return StringComparer.InvariantCulture.GetHashCode(obj);
     }
 }
-
 internal class AgentDescriptior
 {
     public AgentDescriptior(string baseUrl, string agentName, Casing pathCasing, Casing queryCasing, Casing propertyCasing, Func<string, string> pathCasingFn, Func<string, string> queryCasingFn, Func<string, string> propertyCasingFn)

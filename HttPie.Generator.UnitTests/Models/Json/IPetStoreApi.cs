@@ -26,7 +26,7 @@ namespace HttPie.Generator.UnitTests.Models.Json.Client
     }
 
     public interface IOrder:
-        IPost<JsonContent<User>, JsonResponse<User>>
+        IPost</*Json*/User, /*Json*/User>
     {
         IOrderActionsByOrderId this[int orderId] { get; }
     }
