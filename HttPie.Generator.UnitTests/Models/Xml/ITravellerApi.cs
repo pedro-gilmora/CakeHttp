@@ -4,16 +4,22 @@ using HttPie.Generator.UnitTests.Models.Json;
 
 namespace HttPie.Generator.UnitTests.Models.Xml;
 
-[HttpOptions("http://restapi.adequateshop.com/api/", QueryCasing = Casing.CamelCase)]
+[HttpOptions(
+    "http://restapi.adequateshop.com/api/", 
+    QueryCasing = Casing.CamelCase, 
+    DefaultBodyType = BodyType.Xml, 
+    DefaultResponseType = ResponseType.Xml)]
 public interface ITravellerApi
 {
     ITravellerActions Traveler { get; }
 }
 
-public interface ITravellerActions : IGet< /*status*/ PetStatus, XmlResponse<TravelerInformationResponse>>
+public interface ITravellerActions :
+    // queryParamName: status
+    IGet<PetStatus, TravelerInformationResponse>
 {
     ITravelerActionsById this[int id] { get; }
 }
-public interface ITravelerActionsById: IGet<XmlResponse<TravelerInformation>>
+public interface ITravelerActionsById: IGet<TravelerInformation>
 {
 }

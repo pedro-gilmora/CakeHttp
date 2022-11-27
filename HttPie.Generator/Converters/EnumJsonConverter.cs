@@ -3,16 +3,17 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HttPie.Enums;
+using HttPie.Policy;
 
 namespace HttPie.Converters;
 
 public class EnumJsonConverter : JsonConverter<Enum>
 {
-    internal Casing _enumSerialization;
+    private CasingPolicy _enumSerialization;
 
-    internal EnumJsonConverter(Casing enumSerialization)
+    public EnumJsonConverter(Casing enumSerialization)
     {
-        _enumSerialization = enumSerialization;
+        _enumSerialization = CasingPolicy.Create(enumSerialization);
     }
 
     public override bool CanConvert(Type typeToConvert)
@@ -34,7 +35,7 @@ public class EnumJsonConverter : JsonConverter<Enum>
 
     public override void Write(Utf8JsonWriter writer, Enum value, JsonSerializerOptions options)
     {
-        if (GetSuitableValue(value, _enumSerialization) is { } val)
+        if (GetSuitableValue(value) is { } val)
         {
             if (val is string str)
                 writer.WriteStringValue(str);
@@ -43,21 +44,11 @@ public class EnumJsonConverter : JsonConverter<Enum>
         }
     }
 
-    internal static object GetSuitableValue(Enum value, Casing _enumSerialization)
+    internal object GetSuitableValue(Enum value)
     {
         if (value.ToString().Trim() is { } str)
-        {
-            return _enumSerialization switch
-            {
-                Casing.CamelCase => JsonNamingPolicy.CamelCase.ConvertName(str),
-                Casing.UpperCase => str.ToUpperInvariant(),
-                Casing.LowerCase => str.ToLowerInvariant(),
-                Casing.PascalCase => str.Length > 0
-                    ? (str[0].ToString().ToUpperInvariant() + (str.Length > 1 ? str.Substring(1) : "")).Replace("_", "")
-                    : "",
-                _ => str
-            };
-        }
+            return _enumSerialization.ConvertName(str);
+
         return value;
     }
 }

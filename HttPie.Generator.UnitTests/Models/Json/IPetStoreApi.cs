@@ -4,7 +4,7 @@ using HttPie.Enums;
 namespace HttPie.Generator.UnitTests.Models.Json.Client
 {
 
-    [HttpOptions("https://petstore.swagger.io/v2/", QueryCasing = Casing.CamelCase, PathCasing = Casing.CamelCase)]
+    [HttpOptions("https://petstore.swagger.io/v2/", QueryCasing = Casing.CamelCase, PathCasing = Casing.CamelCase, EnumQueryCasing = Casing.CamelCase, EnumSerializationCasing = Casing.CamelCase, PropertyCasing = Casing.CamelCase)]
     public interface IPetStoreApi
     {
         IStore Store { get; }
@@ -26,52 +26,53 @@ namespace HttPie.Generator.UnitTests.Models.Json.Client
     }
 
     public interface IOrder:
-        IPost</*Json*/User, /*Json*/User>
+        IPost<User, User>
     {
         IOrderActionsByOrderId this[int orderId] { get; }
     }
 
     public interface IOrderActionsByOrderId : 
-        IGet<JsonResponse<Order>>, 
-        IDelete<JsonResponse<ApiResponse>>
+        IGet<Order>, 
+        IDelete<ApiResponse>
     {
     }
-    public interface IPetActionsByStatus:
-        IGet</* status */PetStatus, JsonResponse<List<Pet>>>
+    public interface IPetActionsByStatus :
+        // queryParamName: status
+        IGet<PetStatus, List<Pet>>
     {
     }
     public interface IOrderActions: 
-        IPost<JsonContent<Order>, JsonResponse<Order>>,
-        IPut<JsonContent<Order>, JsonResponse<Order>>
+        IPost<Order, Order>,
+        IPut<Order, Order>
     {                               
     }
 
     public interface IPetActionsByPetId : 
-        IGet<JsonResponse<Pet>>, 
-        IDelete<JsonResponse<ApiResponse>>, 
-        IPost<JsonContent<Pet>, JsonResponse<Pet>>
+        IGet<Pet>, 
+        IDelete<ApiResponse>, 
+        IPost<Pet, Pet>
     {
         IPetActionsByPetIdUploadImage UploadImage { get; }
     }
-
-    public interface IPetActionsByPetIdUploadImage:
-        IPost<MultipartFormDataContent<FileInfo>, JsonResponse<ApiResponse>>
+    public interface IPetActionsByPetIdUploadImage :
+        // contentParamName: file
+        IPost<FileInfo, Order>
     {
     }
 
-    public interface IStoreInventory: IGet<JsonResponse<Dictionary<string, long>>>
+    public interface IStoreInventory: IGet<Dictionary<string, long>>
     {
     }
 
-    public interface IUser:IPost<JsonContent<User>, JsonResponse<ApiResponse>>
+    public interface IUser:IPost<User, ApiResponse>
     {
-        IUserStringIndexer this[string userName] { get; }
+        IUserActionsByUserName this[string userName] { get; }
     }
     
-    public interface IUserStringIndexer :
-        IGet<JsonResponse<User>>,
-        IDelete<JsonResponse<ApiResponse>>,
-        IPut<JsonContent<User>, JsonResponse<User>>
+    public interface IUserActionsByUserName :
+        IGet<User>,
+        IDelete<ApiResponse>,
+        IPut<User, User>
     {
 
     }

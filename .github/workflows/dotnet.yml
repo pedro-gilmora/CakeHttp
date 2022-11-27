@@ -1,4 +1,4 @@
-name: CakeHttp build and deploy
+name: HttPie.Generator build and deploy
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Test
-      run: dotnet test Test/CakeHttp.Tests.csproj --verbosity normal -c Release
+      run: dotnet test Test/HttPie.Generator.Tests.csproj --verbosity normal -c Release
 
   deploy:
     name: .NET 7 Deploy to Nuget package
@@ -37,7 +37,7 @@ jobs:
       with:
         dotnet-version: 7.0.x    
     - name: Pack
-      run: dotnet pack DevEverywhere.CakeHttp/CakeHttp.csproj --verbosity normal -c Release
+      run: dotnet pack DevEverywhere.HttPie.Generator/HttPie.Generator.csproj --verbosity normal -c Release
     - name: Publish to Nuget
       run: |
         package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"

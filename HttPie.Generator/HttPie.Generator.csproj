@@ -2,33 +2,65 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<LangVersion>preview</LangVersion>
+		<LangVersion>latest</LangVersion>
+		<Configurations>Debug;Release;DebugGenerator</Configurations>
+		<PackageVersion>
+			1.
+			$([System.DateTime]::Now.ToString('yy')).
+			$([System.DateTime]::Now.DayOfYear).
+			$([System.DateTime]::Now.Second)
+		</PackageVersion>
+		<!--<PackageVersion>
+			1.
+			$([System.DateTime]::Now.ToString('yy')).
+			$([System.DateTime]::Now.DayOfYear).
+			$([System.Convert]::ToUInt16(
+				$([MSBuild]::Divide(
+					$([System.DateTime]::Now.TimeOfDay.TotalMinutes),
+					15
+				))
+			))
+		</PackageVersion>-->
+		<Company>AsereHighDev</Company>
+		<Description>Generator for Rest Services through interfaces</Description>
+		<PackageReadmeFile>ReadMe.md</PackageReadmeFile>
+		<PackageTags>REST; Source Generator; C#; </PackageTags>
+		<PackageReleaseNotes>Generating ReST Services</PackageReleaseNotes>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<!-- Generates a package at build -->
+		<IncludeBuildOutput>true</IncludeBuildOutput>
+		<RunAnalyzersDuringBuild>False</RunAnalyzersDuringBuild>
+		<!-- Do not include the generator as a lib dependency -->
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Compile Remove="ApiGenerator.cs" />
-	  <Compile Remove="ApiGenerator.old.cs" />
-	  <Compile Remove="ApiMetadata.old.cs" />
+		<Compile Remove="ApiGenerator.cs" />
+		<Compile Remove="ApiGenerator.old.cs" />
+		<Compile Remove="ApiMetadata.old.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" PrivateAssets="all" GeneratePathProperty="true" />
+		<None Include="..\ReadMe.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" PrivateAssets="all" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="IndexRange" Version="1.0.2" PrivateAssets="all" GeneratePathProperty="true" />
+		<PackageReference Include="System.Memory" Version="4.5.5" PrivateAssets="all" GeneratePathProperty="true" />
+		<PackageReference Include="System.Net.Http.Json" Version="7.0.0" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="System.Text.Json" Version="7.0.0" PrivateAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
 
-	<PropertyGroup>
-		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
-	</PropertyGroup>
-
-	<Target Name="GetDependencyTargetPaths">
-		<ItemGroup>
-			<TargetPathWithTargetPlatformMoniker Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" IncludeRuntimeDependency="false" />
-		</ItemGroup>
-	</Target>
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="$(PkgNewtonsoft_Json)\lib\netstandard2.0\*.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>
 
 </Project>

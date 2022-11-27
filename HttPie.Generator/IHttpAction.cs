@@ -58,53 +58,6 @@ public readonly struct Query<T>: IHttpResource
     public static implicit operator Query<T>(T value) => new(value);
 }
 
-public interface IHttpContent<T>: IHttpResource
-{
-    T Value { get; set; }
-}
-
-public class HttpContent<T> : IHttpContent<T>
-{
-    protected T Value { get; set; } = default!;
-    T IHttpContent<T>.Value { get => Value; set => Value = value; }
-}
-
-public sealed class MultipartFormDataContent<T> : HttpContent<T>
-{
-    public static implicit operator T(MultipartFormDataContent<T> query) => query.Value;
-    public static implicit operator MultipartFormDataContent<T>(T value) => new() { Value = value };
-}
-
-public sealed class FormDataContent<T> : HttpContent<T>
-{
-    public static implicit operator T(FormDataContent<T> query) => query.Value;
-    public static implicit operator FormDataContent<T>(T value) => new() { Value = value };
-}
-
-public sealed class JsonContent<T> : HttpContent<T>
-{
-    public static implicit operator T(JsonContent<T> query) => query.Value;
-    public static implicit operator JsonContent<T>(T value) => new() { Value = value };
-}
-
-public sealed class JsonResponse<T> : HttpContent<T>
-{
-    public static implicit operator T(JsonResponse<T> query) => query.Value;
-    public static implicit operator JsonResponse<T>(T value) => new() { Value = value };
-}
-
-public sealed class XmlContent<T> : HttpContent<T>
-{
-    public static implicit operator T(XmlContent<T> query) => query.Value;
-    public static implicit operator XmlContent<T>(T value) => new() { Value = value };
-}
-
-public sealed class XmlResponse<T> : HttpContent<T>
-{
-    public static implicit operator T(XmlResponse<T> query) => query.Value;
-    public static implicit operator XmlResponse<T>(T value) => new() { Value = value };
-}
-
 public interface IGet<TResponse>
 {
     Task<TResponse> GetAsync(Func<HttpRequestMessage, Task>? beforeSend = default, Func<HttpResponseMessage, Task>? afterSend = default, CancellationToken cancellationToken = default);

@@ -6,7 +6,7 @@ namespace HttPie.Generator.UnitTests
 {
     public class PetStoreClientTests : IClassFixture<PetStoreClientTestSetup>
     {
-        private readonly PetStoreClient _client;
+        private readonly HttPie.Generator.UnitTests.Models.Json.Client.PetStoreClient _client;
 
         public PetStoreClientTests(PetStoreClientTestSetup clientSetup)
         {
@@ -16,7 +16,7 @@ namespace HttPie.Generator.UnitTests
         [Fact]
         public async void ShouldGetStoreInventoryIndex()
         {
-            Dictionary<string, long> e = await _client.Store.Inventory.GetAsync();
+            var e = await _client.Store.Inventory.GetAsync();
             e.Should().NotBeNull().And.HaveCountGreaterThan(0);
         }
 
@@ -24,8 +24,8 @@ namespace HttPie.Generator.UnitTests
         public async Task ShouldPostUser()
         {
             Guid guid = Guid.NewGuid();
-            User user = new() { Username = $"test_{guid}", Email = $"test_{guid}@test.com", Password = "!CakeHTTP." };
-            ApiResponse response = await _client.User.PostAsync(user);
+            User user = new() { Username = $"test_{guid}", Email = $"test_{guid}@test.com", Password = "!HttPie2022." };
+            var response = await _client.User.PostAsync(user);
             response.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
         }
 
@@ -33,7 +33,7 @@ namespace HttPie.Generator.UnitTests
         public async void ShouldGetPets()
         {
             var pets = await GetPetsAsync();
-            pets.Should().BeOfType<List<Pet>>();
+            pets.Should().BeOfType<List<Pet>>().And.HaveCountGreaterThan(0);
         }
 
         public async Task<List<Pet>> GetPetsAsync()
@@ -46,8 +46,9 @@ namespace HttPie.Generator.UnitTests
         {
             FileInfo file = new("perrito.jpeg");
             var pets = await GetPetsAsync();
-            ApiResponse serverResponse = await _client.Pet[pets[0].Id].UploadImage.PostAsync(file);
-            serverResponse.Code.Should().Be(200);
+            pets.Should().HaveCountGreaterThan(0);
+            var serverResponse = await _client.Pet[pets[0].Id].UploadImage.PostAsync(file);
+            serverResponse.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
         }
     }
 
