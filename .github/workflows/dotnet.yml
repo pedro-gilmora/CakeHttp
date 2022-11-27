@@ -21,7 +21,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Test
-      run: dotnet test Test/HttPie.Generator.UnitTests.csproj --verbosity normal -c Release
+      run: dotnet test HttPie.Generator.UnitTests/HttPie.Generator.UnitTests.csproj --verbosity normal -c Release
 
   deploy:
     name: .NET 7 Deploy to Nuget package
