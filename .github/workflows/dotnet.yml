@@ -4,9 +4,6 @@ on:
   push:
     branches: [ "**" ]
 
-defaults:
-  runs-on: ubuntu-latest
-
 jobs:
   build:
     name: .NET 7 Build
