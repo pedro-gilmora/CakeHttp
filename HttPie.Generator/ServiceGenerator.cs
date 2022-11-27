@@ -137,7 +137,7 @@ using static HttPie.Generator.HttPieHelpers;
             _path = ""{absolutePath}"";            
         }}";
 
-        fileAndContent[typeName] = createType(typeSymbol, typeName, interfaceName, ctor, true);
+        fileAndContent[typeName] = createType(typeSymbol, typeName, interfaceName, ctor, root);
 
         string createType(ITypeSymbol typeSymbol, string typeName, string underlyingInterface, string ctor, bool root = false)
         {
@@ -148,7 +148,7 @@ using static HttPie.Generator.HttPieHelpers;
             {
                 string classType = $@"namespace {containingNameSpace}
 {{
-    public class {typeName} : {underlyingInterface} 
+    public sealed {(root ? "partial" : "")} class {typeName} : {underlyingInterface} 
     {{
         private readonly {builderOptions.AgentTypeName} _agent;
         private readonly string _path;
