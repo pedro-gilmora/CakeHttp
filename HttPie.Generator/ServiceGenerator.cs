@@ -77,14 +77,14 @@ using HttPie.Converters;
 
 namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
 {{
-    internal sealed class {builderOptions.AgentName} 
+    internal sealed class {builderOptions.AgentTypeName} 
     {{
 
         internal HttpClient _httpClient;{(builderOptions.NeedsJsonOptions ? @"
         internal JsonSerializerOptions _jsonOptions;" : "")}
         internal Func<string, string> _pathCasing, _queryCasing, _propertyCasing, _enumQueryCasing, _enumSerializationCasing;
 
-        internal {builderOptions.AgentName}()
+        internal {builderOptions.AgentTypeName}()
         {{
             _httpClient = new HttpClient {{ 
                 BaseAddress = new Uri(""{builderOptions.BaseUrl.AbsoluteUri.Replace(builderOptions.BaseUrl.PathAndQuery, "")}"")
@@ -150,7 +150,7 @@ using static HttPie.Generator.HttPieHelpers;
 {{
     public class {typeName} : {underlyingInterface} 
     {{
-        private readonly {builderOptions.AgentName} _agent;
+        private readonly {builderOptions.AgentTypeName} _agent;
         private readonly string _path;
         
         {ctor}{getMembers().Join()}
@@ -202,13 +202,14 @@ using static HttPie.Generator.HttPieHelpers;
             string
                 serviceName = $"{interfaceName[1..]}Service",
                 implField = $"_{char.ToLower(serviceName[0]) + serviceName[1..]}";
-            var ctor = $@"internal {serviceName}({builderOptions.AgentName} agent, string path)
+            var ctor = $@"internal {serviceName}({builderOptions.AgentTypeName} agent, string path)
         {{
             _agent = agent;
             _path = path;            
         }}";
 
-            fileAndContent[serviceName] = createType(type, serviceName, interfaceName, ctor, true);
+            if(!fileAndContent.ContainsKey(serviceName))
+                fileAndContent[serviceName] = createType(type, serviceName, interfaceName, ctor, true);
 
             return isIndexer
                 ? $@"
@@ -243,64 +244,65 @@ using static HttPie.Generator.HttPieHelpers;
         List<string> methods = new();
         ForEach(cls.DeclaringSyntaxReferences.AsSpan(), sr =>
         {
-            if (sr.GetSyntax() is InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace)
+            if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace) 
+                return;
+
+            Queue<SyntaxTrivia> comments = new(iFace.DescendantTrivia(baseList.FullSpan).Where(c => c.IsKind(SyntaxKind.SingleLineCommentTrivia)));
+
+            ForEach(baseTypes.ToImmutableArray().AsSpan(), baseTypeDecl =>
             {
-                Queue<SyntaxTrivia> comments = new(iFace.DescendantTrivia(baseList.FullSpan).Where(c => c.IsKind(SyntaxKind.SingleLineCommentTrivia)));
+                if (baseTypeDecl.Type is not GenericNameSyntax { TypeArgumentList: { LessThanToken: var ltk, Arguments: { Count: int argsCount and > 0 } args } } type)
+                    return;
+                
+                INamedTypeSymbol paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
 
-                ForEach(baseTypes.ToImmutableArray().AsSpan(), baseTypeDecl =>
-                {
-                    if (baseTypeDecl.Type is GenericNameSyntax { TypeArgumentList: { LessThanToken: var ltk, Arguments: { Count: int argsCount and > 0 } args } } type)
+                OperationDescriptor opDescriptor = new(builderOptions);
+
+                for (int i = 0; i < argsCount; i++)
+
+                    switch (paramType.TypeParameters[i].Name)
                     {
-                        INamedTypeSymbol paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
-
-                        OperationDescriptor opDescriptor = new(builderOptions);
-
-                        for (int i = 0; i < argsCount; i++)
-
-                            switch (paramType.TypeParameters[i].Name)
-                            {
-                                case "TResponse":
-                                    opDescriptor.ResponseType = (INamedTypeSymbol)paramType.TypeArguments[i];
-                                    break;
-                                case "TQuery":
-                                    opDescriptor.QueryType = (INamedTypeSymbol)paramType.TypeArguments[i];
-                                    break;
-                                case "TContent":
-                                    opDescriptor.ContentType = (INamedTypeSymbol)paramType.TypeArguments[i];
-                                    break;
-                            }
-
-                        int endPoint = type.SpanStart;
-
-                        GetComment(comments, startPoint, endPoint, opDescriptor);
-
-                        startPoint = type.Span.End;
-
-                        if (opDescriptor is { ContentFormatType: "Json" } or { ResponseFormatType: "Json" })
-                            builderOptions.NeedsJsonOptions |= true;
-
-                        if (opDescriptor.ContentFormatType is "Json" or "Xml")
-                            usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
-
-                        if (opDescriptor.ResponseFormatType is "Json" or "Xml")
-                            usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
-
-
-                        foreach (var method in paramType.GetMembers().OfType<IMethodSymbol>())
-                        {
-                            if (!method.Name.StartsWith("get_") && !method.Name.StartsWith("set_"))
-                            {
-                                methods.Add(
-                                    GenerateMethod(
-                                        usings,
-                                        builderOptions,
-                                        method,
-                                        opDescriptor));
-                            }
-                        }
+                        case "TResponse":
+                            opDescriptor.ResponseType = (INamedTypeSymbol)paramType.TypeArguments[i];
+                            break;
+                        case "TQuery":
+                            opDescriptor.QueryType = (INamedTypeSymbol)paramType.TypeArguments[i];
+                            break;
+                        case "TContent":
+                            opDescriptor.ContentType = (INamedTypeSymbol)paramType.TypeArguments[i];
+                            break;
                     }
-                });
-            }
+
+                int endPoint = type.SpanStart;
+
+                GetComment(comments, startPoint, endPoint, opDescriptor);
+
+                startPoint = type.Span.End;
+
+                if (opDescriptor is { ContentFormatType: "Json" } or { ResponseFormatType: "Json" })
+                    builderOptions.NeedsJsonOptions |= true;
+
+                if (opDescriptor.ContentFormatType is "Json" or "Xml")
+                    usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
+
+                if (opDescriptor.ResponseFormatType is "Json" or "Xml")
+                    usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
+
+
+                foreach (var method in paramType.GetMembers().OfType<IMethodSymbol>())
+                {
+                    if (!method.Name.StartsWith("get_") && !method.Name.StartsWith("set_"))
+                    {
+                        methods.Add(
+                            GenerateMethod(
+                                usings,
+                                builderOptions,
+                                method,
+                                opDescriptor));
+                    }
+                }
+                
+            });
         });
         return methods;
     }
@@ -383,11 +385,12 @@ using static HttPie.Generator.HttPieHelpers;
 
         string? buildReturnType(out string? returnTypeName, out string? responseHandler)
         {
-            if (contentDesc is { ResponseType: { } returnType, ResponseFormatType: { } returnFormatType })
-            {
-                var options = returnFormatType == "Json" ? "_agent._jsonOptions" : "";
+            if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: { } returnFormatType }) 
+                return responseHandler = returnTypeName = null;
 
-                responseHandler = $@"
+            var options = returnFormatType == "Json" ? "_agent._jsonOptions" : "";
+
+            responseHandler = $@"
 
             return response switch 
             {{
@@ -400,8 +403,7 @@ using static HttPie.Generator.HttPieHelpers;
                 _ => default({returnTypeName})
             }};";
                 return $"<{returnTypeName}>";
-            }
-            return responseHandler = returnTypeName = null;
+            
         }
 
         string buildParameters(out string? queryReference, out string? contentRefernce)

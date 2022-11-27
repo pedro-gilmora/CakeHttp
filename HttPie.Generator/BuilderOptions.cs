@@ -14,7 +14,7 @@ internal sealed class BuilderOptions
     internal BuilderOptions(AttributeData attr, string agentName)
     {
         BaseUrl = new(attr.ConstructorArguments[0].Value!.ToString());
-        AgentName = agentName;
+        AgentTypeName = agentName;
 
         if (attr.NamedArguments.ToDictionary(kv => kv.Key, kv => kv.Value) is { Count: > 0 } dic)
         {
@@ -34,19 +34,19 @@ internal sealed class BuilderOptions
     }
 
     internal Uri BaseUrl { get; }
-    internal string AgentName { get; }
-    internal Casing PathCasing { get; }
-    internal Casing QueryCasing { get; }
-    internal Casing PropertyCasing { get; }
-    internal Casing EnumQueryCasing { get; }
-    internal Casing EnumSerializationCasing { get; }
+    internal string AgentTypeName { get; }
+    internal Casing PathCasing { get; } = Casing.CamelCase;
+    internal Casing QueryCasing { get; } = Casing.CamelCase;
+    internal Casing PropertyCasing { get; } = Casing.CamelCase;
+    internal Casing EnumQueryCasing { get; } = Casing.CamelCase;
+    internal Casing EnumSerializationCasing { get; } = Casing.CamelCase;
     internal Func<string, string> PathCasingFn { get; }
     internal Func<string, string> QueryCasingFn { get; }
     internal Func<string, string> EnumQueryCasingFn { get; }
     internal Func<string, string> EnumSerializationCasingFn { get; }
     internal Func<string, string> PropertyCasingFn { get; }
-    public BodyType DefaultBodyType { get; set; }
-    public ResponseType DefaultResponseType { get; }
+    public BodyType DefaultBodyType { get; set; } = BodyType.Json;
+    public ResponseType DefaultResponseType { get; } = ResponseType.Json;
     internal string? SegmentFallback { get; set; }
     internal Dictionary<string, string> HelperMethods { get; } = new();
     internal bool NeedsJsonOptions { get; set; }
