@@ -56,7 +56,7 @@ namespace HttPie.Generator.UnitTests.Models.Json.Client
     }
     public interface IPetActionsByPetIdUploadImage :
         // contentParamName: file
-        IPost<FileInfo, Order>
+        IPost<FileInfo, ApiResponse>
     {
     }
 

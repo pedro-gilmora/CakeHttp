@@ -16,21 +16,25 @@ namespace HttPie.Generator;
 [Generator]
 public class ServiceClientGenerator : IIncrementalGenerator
 {
+    static volatile object _lock = new();
     static readonly DiagnosticDescriptor propertyDiagnosis = new("SG001", "Interface {0} has not defined properties for posible nested services", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
     static readonly DiagnosticDescriptor methodDiagnosis = new("SG002", "Interface {0} has not defined method to implement", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var interfaceDeclarations = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
-                "HttPie.Attributes.HttpOptionsAttribute",
-                static (n, _) => n is InterfaceDeclarationSyntax,
-                static (ctx, c) => (Attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
-            );
+        lock (_lock)
+        {
+            var interfaceDeclarations = context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    "HttPie.Attributes.HttpOptionsAttribute",
+                    static (n, _) => n is InterfaceDeclarationSyntax,
+                    static (ctx, c) => (Attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
+                );
 
-        context.RegisterSourceOutput(
-            interfaceDeclarations,
-            static (sourceProducer, gen) => CreateRelatedTypeFiles(sourceProducer, gen.semanticModel, gen.Attr, gen.type, true)
-        );
+            context.RegisterSourceOutput(
+                interfaceDeclarations,
+                static (sourceProducer, gen) => CreateRelatedTypeFiles(sourceProducer, gen.semanticModel, gen.Attr, gen.type, true)
+            );
+        }
     }
 
     private static void RegisterNamespace(HashSet<string> usings, params string[] namespaces)
