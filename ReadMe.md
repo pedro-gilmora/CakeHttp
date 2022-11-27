@@ -16,34 +16,12 @@
   - **`CancellationToken? cancelToken`**: A cancellation token for this task
 
 ### Operation metadata
-<table>
-<tr><td>Key</td><td>Description</td></tr>
-<tr>
-<td><b><code>queryParamName</code></b></td>
-<td>
-Sets the query parameter name. Defaults to <code>query</code>. E.g.: <code>?status=pending</code> whereas <b>status</b> is the <code>queryParamName</code> for a value type parameter
-</td>
-</tr>
-<tr>
-<td><b><code>contentParamName</code></b></td>
-<td>
-Sets the content parameter name. Defaults to <code>content</code>. For <code>MultipartFormData</code> or <code>FormUrlEncoded</code> content types creates a named item for value type parameters
-</td>
-</tr>
-<tr>
-<td><b><code>contentFormatType</code></b></td>
-<td>
-Determines the content format type. <code>MultipartFormData</code> and
-<code>FormUrlEncoded</code>. For <code>Xml</code>, a <code>StreamContent</code> is created to transport the serialized data. <code>Json</code> uses the same <code>System.Net.Http.Json.JsonContent</code> are available
-</td>
-</tr>
-<tr>
-<td><b><code>responseFormatType</code></b></td>
-<td>
-Determines the response format type. Just <code>Xml</code> and <code>Json</code>
-</td>
-</tr>
-</table>
+| Key                | Description                                                                                                                                                                                                         |
+|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`queryParamName`**     |  Sets the query parameter name. Defaults to query. E.g.: `?status=pending` whereas status is the `queryParamName` for a value type parameter                                                                            |
+| **`contentParamName`**   |  Sets the content parameter name. Defaults to content. For `MultipartFormData` or `FormUrlEncoded` content types creates a named item for value type parameters                                                         |
+| **`contentFormatType`**  |  Determines the content format type. `MultipartFormData` and `FormUrlEncoded`. For `Xml`, a `StreamContent` is created to transport the serialized data. `Json` uses the same `System.Net.Http.Json.JsonContent` are available  |
+| **`responseFormatType`** |  Determines the response format type. Just `Xml` and `Json`                                                                                                                                                             |
 
 >Rest of `{key}: {value}` pairs parsed on comments will be trated as request headers
 
