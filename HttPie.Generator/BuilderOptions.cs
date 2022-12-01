@@ -26,11 +26,12 @@ internal sealed class BuilderOptions
             DefaultBodyType = dic.TryGetValue(nameof(HttpOptionsAttribute.DefaultBodyType), out var _defaultBodyType) ? (BodyType)_defaultBodyType.Value! : BodyType.Json;
             DefaultResponseType = dic.TryGetValue(nameof(HttpOptionsAttribute.DefaultResponseType), out var _defaultResponseType) ? (ResponseType)_defaultResponseType.Value! : ResponseType.Json;
         }
-        PathCasingFn = CasingPolicy.Create(PathCasing).ConvertName;
-        QueryCasingFn = CasingPolicy.Create(QueryCasing).ConvertName;
-        PropertyCasingFn = CasingPolicy.Create(PropertyCasing).ConvertName;
-        EnumQueryCasingFn = CasingPolicy.Create(EnumQueryCasing).ConvertName;
-        EnumSerializationCasingFn = CasingPolicy.Create(EnumSerializationCasing).ConvertName;
+
+        PathCasingFn = CasingPolicy.GetConverter(PathCasing);
+        QueryPropCasingFn = CasingPolicy.GetConverter(QueryCasing);
+        PropertyCasingFn = CasingPolicy.GetConverter(PropertyCasing);
+        EnumQueryCasingFn = CasingPolicy.GetConverter(EnumQueryCasing);
+        EnumSerializationCasingFn = CasingPolicy.GetConverter(EnumSerializationCasing);
     }
 
     internal Uri BaseUrl { get; }
@@ -41,7 +42,7 @@ internal sealed class BuilderOptions
     internal Casing EnumQueryCasing { get; } = Casing.CamelCase;
     internal Casing EnumSerializationCasing { get; } = Casing.CamelCase;
     internal Func<string, string> PathCasingFn { get; }
-    internal Func<string, string> QueryCasingFn { get; }
+    internal Func<string, string> QueryPropCasingFn { get; }
     internal Func<string, string> EnumQueryCasingFn { get; }
     internal Func<string, string> EnumSerializationCasingFn { get; }
     internal Func<string, string> PropertyCasingFn { get; }

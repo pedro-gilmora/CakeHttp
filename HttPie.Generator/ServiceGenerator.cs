@@ -10,6 +10,8 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
+using HttPie.Policy;
+using System.Data;
 
 namespace HttPie.Generator;
 
@@ -82,27 +84,20 @@ namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
 
         internal HttpClient _httpClient;{(builderOptions.NeedsJsonOptions ? @"
         internal JsonSerializerOptions _jsonOptions;" : "")}
-        internal Func<string, string> _pathCasing, _queryCasing, _propertyCasing, _enumQueryCasing, _enumSerializationCasing;
 
         internal {builderOptions.AgentTypeName}()
         {{
             _httpClient = new HttpClient {{ 
                 BaseAddress = new Uri(""{builderOptions.BaseUrl.AbsoluteUri.Replace(builderOptions.BaseUrl.PathAndQuery, "")}"")
-            }};
-            _pathCasing = CasingPolicy.Create(Casing.{builderOptions.PathCasing}).ConvertName;
-            _queryCasing = CasingPolicy.Create(Casing.{builderOptions.QueryCasing}).ConvertName;
-            _propertyCasing = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing}).ConvertName;
-            _enumQueryCasing = CasingPolicy.Create(Casing.{builderOptions.EnumQueryCasing}).ConvertName;
-            _enumSerializationCasing = CasingPolicy.Create(Casing.{builderOptions.EnumSerializationCasing}).ConvertName;{(builderOptions.NeedsJsonOptions ? $@"
+            }};{(builderOptions.NeedsJsonOptions ? $@"
             _jsonOptions = new JsonSerializerOptions {{                
-                ReferenceHandler = ReferenceHandler.IgnoreCycles,
-                PropertyNamingPolicy = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing})
+                ReferenceHandler = ReferenceHandler.IgnoreCycles{GenerateCaseConverter(builderOptions, "PropertyNamingPolicy", @",
+                ")}                
             }};
-            _jsonOptions.Converters.Insert(0, new EnumJsonConverter(Casing.{builderOptions.EnumSerializationCasing}));" : "")}
+            _jsonOptions.Converters.Insert(0, new EnumJsonConverter(Casing.{builderOptions.EnumSerializationCasing}));" : ";")}
         }}{builderOptions.HelperMethods.Values.Join(@"
                 
         ")}
-
     }}
 }}";
 
@@ -123,6 +118,15 @@ using static HttPie.Generator.HttPieHelpers;
             productionContext.AddSource($"{clientName}.{agentName}.g.cs", $"/*{e}*/");
         }
 
+    }
+
+    private static string GenerateCaseConverter(BuilderOptions builderOptions, string prop, string separatorTrivia, string fallBackConverter = "value => value")
+    {
+        return builderOptions.PropertyCasing != Enums.Casing.None
+                            ? $"{separatorTrivia}{prop} = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing})"
+                            : fallBackConverter != null 
+                                ? $"{separatorTrivia}{prop} = {fallBackConverter}" 
+                                : "";
     }
 
     private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SourceProductionContext productionContext, SemanticModel semanticModel, ITypeSymbol typeSymbol, string typeName, string interfaceName, BuilderOptions builderOptions, bool root)
@@ -242,6 +246,7 @@ using static HttPie.Generator.HttPieHelpers;
     private static IEnumerable<string> BuildMethods(ITypeSymbol cls, SemanticModel semanticModel, BuilderOptions builderOptions, HashSet<string> usings)
     {
         List<string> methods = new();
+
         ForEach(cls.DeclaringSyntaxReferences.AsSpan(), sr =>
         {
             if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace) 
@@ -253,22 +258,22 @@ using static HttPie.Generator.HttPieHelpers;
             {
                 if (baseTypeDecl.Type is not GenericNameSyntax { TypeArgumentList: { LessThanToken: var ltk, Arguments: { Count: int argsCount and > 0 } args } } type)
                     return;
-                
+
                 INamedTypeSymbol paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
 
                 OperationDescriptor opDescriptor = new(builderOptions);
 
                 for (int i = 0; i < argsCount; i++)
 
-                    switch (paramType.TypeParameters[i].Name)
+                    switch (paramType.TypeParameters[i])
                     {
-                        case "TResponse":
+                        case { Name: "TResponse" } param:
                             opDescriptor.ResponseType = (INamedTypeSymbol)paramType.TypeArguments[i];
                             break;
-                        case "TQuery":
+                        case { Name: "TQuery" } param:
                             opDescriptor.QueryType = (INamedTypeSymbol)paramType.TypeArguments[i];
                             break;
-                        case "TContent":
+                        case { Name: "TContent" } param:
                             opDescriptor.ContentType = (INamedTypeSymbol)paramType.TypeArguments[i];
                             break;
                     }
@@ -375,7 +380,6 @@ using static HttPie.Generator.HttPieHelpers;
             pathVar = "_path",
             cancelToken = defaultCancelToken,
             parameters = buildParameters(out string? queryReference, out string? contentRefernce);
-
         return @$"
 
         public async Task{buildReturnType(out var returnType, out var responseHandler)} {name}({parameters})
@@ -385,7 +389,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         string? buildReturnType(out string? returnTypeName, out string? responseHandler)
         {
-            if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: { } returnFormatType }) 
+            if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: var returnFormatType }) 
                 return responseHandler = returnTypeName = null;
 
             var options = returnFormatType == "Json" ? "_agent._jsonOptions" : "";
@@ -478,12 +482,17 @@ using static HttPie.Generator.HttPieHelpers;
 
         string buildRequestSubmission()
         {
-            var sendPrefix = "";
-            if (returnType != null)
-                sendPrefix = "var response = ";
 
             return $@"{queryReference}var request = new HttpRequestMessage(HttpMethod.{methodType}, new Uri({pathVar}, UriKind.Relative)){contentRefernce};
-            {sendPrefix}await _agent._httpClient.SendAsync(request, {cancelToken});";
+
+            if(beforeSend != null)
+                await beforeSend(request);
+
+            var response = await _agent._httpClient.SendAsync(request, {cancelToken});
+            
+            if(afterSend != null)
+                await afterSend(response);";
+
         }
 
         string buildQueryParams(out string pathVar)
@@ -498,7 +507,13 @@ using static HttPie.Generator.HttPieHelpers;
                 requestSyntax += $@"var path = $""{{_path}}";
 
                 if (queryType.IsValueType)
-                    requestSyntax += $@"?{builderOptions.QueryCasingFn(queryParameterName)}={{_agent._enumQueryCasing({queryParameterName}.ToString())}}";
+                {
+                    string 
+                        paramName = builderOptions.QueryPropCasingFn(queryParameterName),
+                        paramValue = CasingPolicy.GetConverterExpression(queryParameterName, queryType, builderOptions.EnumQueryCasing);
+                    
+                    requestSyntax += $@"?{paramName}={{{paramValue}}}";
+                }
                 else
                 {
                     requestSyntax += $@"?{{_agent.BuildQuery({queryParameterName})}}";
@@ -525,11 +540,7 @@ using static HttPie.Generator.HttPieHelpers;
             {{
                 var result = ""?"";
 
-                {(queryTypeName == "Object"
-                        ? $@"foreach(var prop in typeof({{{queryTypeName}}}).GetProperties())
-                    if(prop.GetValue(query) is {{}} value)
-                        result += $""&{{_queryCasing(prop.Name)}}={{prop.Type.IsEnum ? _enumQueryCasing(value.ToString()) : value}}"";"
-                        : getQueryPropertyBuilder(builderOptions, queryType))}
+                {getQueryPropertyBuilder(builderOptions, queryType)}
                 
                 if(result.StartsWith(""?&""))
                     return result.Remove(1);
@@ -550,20 +561,11 @@ using static HttPie.Generator.HttPieHelpers;
 
         string buildQueryProperty(IPropertySymbol prop)
         {
-            var value = $"query.{prop.Name}";
+            string 
+                queryParamName = builderOptions.QueryPropCasingFn(prop.Name),
+                queryParamValue = CasingPolicy.GetConverterExpression($"query.{prop.Name}", prop.Type, builderOptions.EnumQueryCasing);
 
-            if (((INamedTypeSymbol)prop.Type).EnumUnderlyingType != null)
-                value = $"_agent.enumCasing({value})";
-
-            var result = $@"result += ""&{builderOptions.QueryCasingFn(prop.Name)}={{{value}}}"";";
-
-            if (prop.Type is { IsReferenceType: true } or { SpecialType: SpecialType.System_String })
-                result += $@"
-
-                    if(query.{prop.Name} != null)
-                        {result}";
-
-            return result;
+            return $@"result += ""&{queryParamName}={{{queryParamValue}}}"";";
         }
     }
 
@@ -605,7 +607,7 @@ using static HttPie.Generator.HttPieHelpers;
 
             { NullableAnnotation: { } nullability, IsTupleType: true, TupleElements: { } els } =>
                 els
-                .Select(el => @$"{{ ""{builderOptions.QueryCasingFn(el.Name)}"": content{(nullability == NullableAnnotation.Annotated ? "?" : "")}.{{{$"{el.Name}{(el.Type.IsValueType ? "" : "?")}"}}}.ToString() }}")
+                .Select(el => @$"{{ ""{builderOptions.QueryPropCasingFn(el.Name)}"": content{(nullability == NullableAnnotation.Annotated ? "?" : "")}.{{{$"{el.Name}{(el.Type.IsValueType ? "" : "?")}"}}}.ToString() }}")
                 .Join(@", 
                         "),
 
@@ -653,7 +655,13 @@ using static HttPie.Generator.HttPieHelpers;
 
             _
                 => IsPrimitive((INamedTypeSymbol)type) ? type.ToDisplayString() : type.Name
-        };
+        } + (IsNullable(type) ? "?" : "")
+;
+    }
+
+    private static bool IsNullable(ITypeSymbol type)
+    {
+        return (type is INamedTypeSymbol { Name: "Nullable" } or INamedTypeSymbol { NullableAnnotation: NullableAnnotation.Annotated });
     }
 
     private static bool IsPrimitive(INamedTypeSymbol type)

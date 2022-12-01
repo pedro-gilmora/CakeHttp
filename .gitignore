@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 .devcontainer/dotnet
+/HttPie.Generator.UnitTests/Clients/
