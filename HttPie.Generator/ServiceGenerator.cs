@@ -647,12 +647,12 @@ using static HttPie.Generator.HttPieHelpers;
 
         return type switch
         {
-            INamedTypeSymbol { Name: var name, TypeArguments: { Length: > 0 } generics }
-                => $"{name}<{generics.Join(g => GetType(usings, g), ", ")}>",
 
             INamedTypeSymbol { IsTupleType: true, TupleElements: var elements }
                 => $"({elements.Join(f => $"{GetType(usings, f.Type)}{(f.IsExplicitlyNamedTupleElement ? $" {f.Name}" : "")}", ", ")})",
 
+            INamedTypeSymbol { Name: var name, TypeArguments: { Length: > 0 } generics }
+                => $"{name}<{generics.Join(g => GetType(usings, g), ", ")}>",
             _
                 => IsPrimitive((INamedTypeSymbol)type) ? type.ToDisplayString() : type.Name
         } + (IsNullable(type) ? "?" : "")

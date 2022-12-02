@@ -21,6 +21,7 @@ namespace HttPie.Generator
         {
             return string.Join(separator, strs?.Select(formmater) ?? Enumerable.Empty<string>());
         }
+
         public static string Join<T>(this IEnumerable<T> strs, string? separator = "")
         {
             return Join(strs, t => t?.ToString() ?? "", separator);
