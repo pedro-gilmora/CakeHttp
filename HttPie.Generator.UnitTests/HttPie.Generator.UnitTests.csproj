@@ -1,17 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<Configurations>Debug;Release;DebugGenerator</Configurations>
-	</PropertyGroup>
-
-	<PropertyGroup Condition=" '$(Configuration)' == 'DebugGenerator' ">
-		<IsPackable>false</IsPackable>
-		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-		<GeneratedFolder>Clients</GeneratedFolder>
-		<CompilerGeneratedFilesOutputPath>$(GeneratedFolder)\$(TargetFramework)</CompilerGeneratedFilesOutputPath>
+		<Configurations>Debug;Release;Test</Configurations>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -20,22 +13,16 @@
 		<PackageReference Include="xunit" Version="2.4.2" PrivateAssets="all" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" PrivateAssets="all">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="coverlet.collector" Version="3.2.0">
+		<PackageReference Include="coverlet.collector" Version="3.2.0" PrivateAssets="all">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
 
-	<!--👇 Exclude everything in the base folder-->
-
-	<ItemGroup Condition=" '$(Configuration)' == 'DebugGenerator' ">
-		<Compile Remove="$(GeneratedFolder)/**/*.cs" />
-	</ItemGroup>
-
 	<ItemGroup>
-		<ProjectReference Include="..\HttPie.Generator\HttPie.Generator.csproj" OutputItemType="Analyzer" />
+		<ProjectReference Include="..\HttPie.Generator\HttPie.Generator.csproj"
+											OutputItemType="Analyzer"/>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -43,11 +30,5 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
-
-	<Target Name="DisableAnalyzers" BeforeTargets="CoreCompile">
-		<ItemGroup>
-			<Analyzer Remove="@(Analyzer)" Condition="'%(Filename)' == 'ServiceGenerator'" />
-		</ItemGroup>
-	</Target>
 
 </Project>

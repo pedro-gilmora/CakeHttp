@@ -1,5 +1,6 @@
 ﻿using HttPie.Attributes;
 using HttPie.Enums;
+using HttPie.Generator.Operations;
 using HttPie.Generator.UnitTests.Models.Json;
 
 namespace HttPie.Generator.UnitTests.Models.Xml;

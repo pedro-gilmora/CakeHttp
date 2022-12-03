@@ -7,7 +7,7 @@ using HttPie.Enums;
 using HttPie.Policy;
 using Microsoft.CodeAnalysis;
 
-namespace HttPie.Generator;
+namespace HttPie.Generator.Internals;
 
 internal sealed class BuilderOptions
 {

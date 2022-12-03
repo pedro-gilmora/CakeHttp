@@ -6,7 +6,7 @@ namespace HttPie.Generator.UnitTests
 {
     public class PetStoreClientTests : IClassFixture<PetStoreClientTestSetup>
     {
-        private readonly HttPie.Generator.UnitTests.Models.Json.Client.PetStoreClient _client;
+        private readonly PetStoreClient _client;
 
         public PetStoreClientTests(PetStoreClientTestSetup clientSetup)
         {

@@ -36,25 +36,22 @@ public class CasingPolicy : JsonNamingPolicy
 
     internal static string GetConverterExpression(string value, ITypeSymbol type, Casing propCasing)
     {
-        switch (type)
+        return type switch
         {
-            case INamedTypeSymbol { EnumUnderlyingType: not null }:
-                return value + propCasing switch
-                {
-                    Casing.Digit => @".ToString(""D"")",
-                    Casing.CamelCase => ".ToCamelCase()",
-                    Casing.PascalCase => ".ToPascalCase()",
-                    Casing.LowerCase => ".ToLower()",
-                    Casing.UpperCase => ".ToUpper()",
-                    Casing.LowerSnakeCase => ".ToLowerSnakeCase()",
-                    Casing.UpperSnakeCase => ".ToUpperSnakeCase()",
-                    _ => ""
-                };
-            case not { SpecialType: SpecialType.System_String }:
-                return value + ".ToString()";
-        }
-
-        return "";
+            INamedTypeSymbol { EnumUnderlyingType: not null } => value + propCasing switch
+            {
+                Casing.Digit => @".ToString(""D"")",
+                Casing.CamelCase => ".ToCamelCase()",
+                Casing.PascalCase => ".ToPascalCase()",
+                Casing.LowerCase => ".ToLower()",
+                Casing.UpperCase => ".ToUpper()",
+                Casing.LowerSnakeCase => ".ToLowerSnakeCase()",
+                Casing.UpperSnakeCase => ".ToUpperSnakeCase()",
+                _ => ".ToString()"
+            },
+            not { SpecialType: SpecialType.System_String } => value + ".ToString()",
+            _ => "",
+        };
     }
 
     public static CasingPolicy Create(Casing casing) => new(casing);

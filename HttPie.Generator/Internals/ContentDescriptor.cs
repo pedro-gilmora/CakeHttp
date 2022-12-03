@@ -1,8 +1,9 @@
 ﻿#nullable enable
+using HttPie;
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
 
-namespace HttPie.Generator;
+namespace HttPie.Generator.Internals;
 
 internal sealed class OperationDescriptor
 {

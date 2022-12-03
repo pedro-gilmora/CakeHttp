@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using HttPie.Policy;
 using System.Data;
+using HttPie.Generator.Internals;
 
 namespace HttPie.Generator;
 
@@ -124,8 +125,8 @@ using static HttPie.Generator.HttPieHelpers;
     {
         return builderOptions.PropertyCasing != Enums.Casing.None
                             ? $"{separatorTrivia}{prop} = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing})"
-                            : fallBackConverter != null 
-                                ? $"{separatorTrivia}{prop} = {fallBackConverter}" 
+                            : fallBackConverter != null
+                                ? $"{separatorTrivia}{prop} = {fallBackConverter}"
                                 : "";
     }
 
@@ -212,7 +213,7 @@ using static HttPie.Generator.HttPieHelpers;
             _path = path;            
         }}";
 
-            if(!fileAndContent.ContainsKey(serviceName))
+            if (!fileAndContent.ContainsKey(serviceName))
                 fileAndContent[serviceName] = createType(type, serviceName, interfaceName, ctor, true);
 
             return isIndexer
@@ -249,7 +250,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         ForEach(cls.DeclaringSyntaxReferences.AsSpan(), sr =>
         {
-            if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace) 
+            if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace)
                 return;
 
             Queue<SyntaxTrivia> comments = new(iFace.DescendantTrivia(baseList.FullSpan).Where(c => c.IsKind(SyntaxKind.SingleLineCommentTrivia)));
@@ -306,7 +307,7 @@ using static HttPie.Generator.HttPieHelpers;
                                 opDescriptor));
                     }
                 }
-                
+
             });
         });
         return methods;
@@ -316,7 +317,7 @@ using static HttPie.Generator.HttPieHelpers;
     {
         SyntaxTrivia comm = comments.FirstOrDefault();
 
-        if (!TextSpan.FromBounds(startPoint, endPoint).Contains(comm.FullSpan)) 
+        if (!TextSpan.FromBounds(startPoint, endPoint).Contains(comm.FullSpan))
             return;
 
         ForEach<string[]>(GetMetadata(comm).AsSpan(), parts =>
@@ -389,7 +390,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         string? buildReturnType(out string? returnTypeName, out string? responseHandler)
         {
-            if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: var returnFormatType }) 
+            if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: var returnFormatType })
                 return responseHandler = returnTypeName = null;
 
             var options = returnFormatType == "Json" ? "_agent._jsonOptions" : "";
@@ -406,8 +407,8 @@ using static HttPie.Generator.HttPieHelpers;
 
                 _ => default({returnTypeName})
             }};";
-                return $"<{returnTypeName}>";
-            
+            return $"<{returnTypeName}>";
+
         }
 
         string buildParameters(out string? queryReference, out string? contentRefernce)
@@ -423,7 +424,7 @@ using static HttPie.Generator.HttPieHelpers;
                 var queryTypeName = GetType(usings, queryType);
 
                 parametersSyntax += $@"{queryTypeName} {queryParameterName}";
-                queryReference = buildQueryParams(out pathVar);
+                queryReference = buildQueryParams(queryTypeName, out pathVar);
             }
 
             if (contentDesc is { ContentFormatType: { } contentDocType, ContentParameterName: { } contentParamName, ContentType: INamedTypeSymbol contentType })
@@ -439,7 +440,7 @@ using static HttPie.Generator.HttPieHelpers;
 
                 var isFile = contentTypeName.Contains("FileInfo");
 
-                if (isFile) 
+                if (isFile)
                     contentDocType = "MultipartFormData";
 
                 var content = contentDocType switch
@@ -495,7 +496,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         }
 
-        string buildQueryParams(out string pathVar)
+        string buildQueryParams(string queryTypeName, out string pathVar)
         {
             pathVar = "_path";
 
@@ -506,18 +507,22 @@ using static HttPie.Generator.HttPieHelpers;
                 pathVar = "path";
                 requestSyntax += $@"var path = $""{{_path}}";
 
-                if (queryType.IsValueType)
+                if (queryType is { IsValueType: true, IsTupleType: false })
                 {
-                    string 
+                    string
                         paramName = builderOptions.QueryPropCasingFn(queryParameterName),
                         paramValue = CasingPolicy.GetConverterExpression(queryParameterName, queryType, builderOptions.EnumQueryCasing);
-                    
+
                     requestSyntax += $@"?{paramName}={{{paramValue}}}";
                 }
                 else
                 {
                     requestSyntax += $@"?{{_agent.BuildQuery({queryParameterName})}}";
-                    registerQueryBuilder(queryParameterName, queryType);
+
+                    var signature = $@"string BuildQuery({queryTypeName} query)";
+
+                    if(!builderOptions.HelperMethods.ContainsKey(signature))
+                        registerQueryBuilder(queryTypeName, queryType, signature);
                 }
                 requestSyntax += @""";
             ";
@@ -528,44 +533,58 @@ using static HttPie.Generator.HttPieHelpers;
             return "";
         }
 
-        string registerQueryBuilder(string queryTypeName, INamedTypeSymbol queryType)
+        string registerQueryBuilder(string queryTypeName, INamedTypeSymbol queryType, string signature)
         {
-            var signature = $@"string BuildQuery({queryTypeName} query)";
-
             return builderOptions.HelperMethods[signature] = $@"
 
         internal {signature}
         {{
-            if(query != null)
-            {{
-                var result = ""?"";
-
-                {getQueryPropertyBuilder(builderOptions, queryType)}
-                
-                if(result.StartsWith(""?&""))
-                    return result.Remove(1);
-            }}
-
-            return """";
+            {BuildQueryBuilderBody(builderOptions, queryTypeName, queryType)}
         }}";
         }
+    }
 
-        string getQueryPropertyBuilder(BuilderOptions builderOptions, ITypeSymbol queryType)
+    //public const char EMPTY = char.MinValue;
+
+    private static string BuildQueryBuilderBody(BuilderOptions builderOptions, string queryTypeName, INamedTypeSymbol queryType)
+    {
+        bool isNullableParam = IsNullable(queryType);
+        var items = GetQueryProperties(queryType);
+        var body = "return QueryBuilder.With(query)";
+
+        if (isNullableParam) body = $@"if(query == null) return """";
+
+            {body}";
+
+        int indent = isNullableParam ? 4 : 3, itemsLen = items.Length;
+
+        foreach ((int i, string memberName, ITypeSymbol type, bool isNullable) in items)
         {
-            return (from member in queryType.GetMembers()
-                    let prop = member as IPropertySymbol
-                    where prop is { IsIndexer: false }
-                    select buildQueryProperty(prop)).Join(@"
-                ");
+            string
+                queryParamName = builderOptions.QueryPropCasingFn(memberName),
+                queryParamValue = CasingPolicy
+                    .GetConverterExpression($"query.{memberName}{(isNullable ? "?" : "")}", type, builderOptions.EnumQueryCasing);
+
+            body += $@"
+                .Add(""{queryParamName}"", {(isNullable ? $"_query => _{queryParamValue}" : queryParamValue)})";
+            
         }
 
-        string buildQueryProperty(IPropertySymbol prop)
-        {
-            string 
-                queryParamName = builderOptions.QueryPropCasingFn(prop.Name),
-                queryParamValue = CasingPolicy.GetConverterExpression($"query.{prop.Name}", prop.Type, builderOptions.EnumQueryCasing);
+        body += @"
+                .ToString();";
 
-            return $@"result += ""&{queryParamName}={{{queryParamValue}}}"";";
+        return body;
+
+        static (int i, string, ITypeSymbol Type, bool)[] GetQueryProperties(INamedTypeSymbol queryType)
+        {
+            return (queryType is { IsTupleType: true, TupleElements: { } els }
+                        ? els
+                            .Select((e, i) => (i, e.IsExplicitlyNamedTupleElement ? e.Name : $"Item{i + 1}", e.Type, IsNullable(e.Type)))
+                        : queryType
+                            .GetMembers()
+                            .Cast<IPropertySymbol>()
+                            .Where(e => !e.IsIndexer)
+                            .Select((e, i) => (i, e.Name, e.Type, IsNullable(e.Type)))).ToArray();
         }
     }
 
@@ -647,7 +666,9 @@ using static HttPie.Generator.HttPieHelpers;
 
         return type switch
         {
-
+            INamedTypeSymbol { Name: "Nullable", TypeArguments: [{ } underlyingType] }
+                => $"{GetType(usings, underlyingType)}?",
+                
             INamedTypeSymbol { IsTupleType: true, TupleElements: var elements }
                 => $"({elements.Join(f => $"{GetType(usings, f.Type)}{(f.IsExplicitlyNamedTupleElement ? $" {f.Name}" : "")}", ", ")})",
 
@@ -655,7 +676,7 @@ using static HttPie.Generator.HttPieHelpers;
                 => $"{name}<{generics.Join(g => GetType(usings, g), ", ")}>",
             _
                 => IsPrimitive((INamedTypeSymbol)type) ? type.ToDisplayString() : type.Name
-        } + (IsNullable(type) ? "?" : "")
+        }
 ;
     }
 
