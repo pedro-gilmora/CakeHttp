@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using HttPie.Generator.Internals;
 using HttPie.Enums;
+using HttPie.Generator.Attributes;
 
 namespace HttPie.Generator;
 
@@ -176,7 +177,11 @@ using static HttPie.Generator.HttPieHelpers;
 
                 if (typeSymbol.GetMembers().OfType<IPropertySymbol>() is { } props)
                     foreach (var prop in props)
-                        yield return buildPropertyAndTypes(prop.Name, prop.Type, prop.IsIndexer, prop.Parameters, GetType(usings, prop.Type), usings);
+                        yield return buildPropertyAndTypes(prop.Name,
+                    prop.GetAttributes()
+                        .FirstOrDefault(FindSegmentAttr) is { ConstructorArguments: [{ Value: string value }] }
+                            ? value
+                            : null, prop.Type, prop.IsIndexer, prop.Parameters, GetType(usings, prop.Type), usings);
 
 
                 if (BuildMethods(typeSymbol, semanticModel, builderOptions, usings).ToImmutableArray() is { Length: int mLen and > 0 } methods)
@@ -201,7 +206,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         }
 
-        string buildPropertyAndTypes(string propName, ITypeSymbol type, bool isIndexer, ImmutableArray<IParameterSymbol> parameters, string interfaceName, HashSet<string> usings)
+        string buildPropertyAndTypes(string propName, string? segment, ITypeSymbol type, bool isIndexer, ImmutableArray<IParameterSymbol> parameters, string interfaceName, HashSet<string> usings)
         {
             string
                 serviceName = $"{interfaceName[1..]}Service",
@@ -222,7 +227,7 @@ using static HttPie.Generator.HttPieHelpers;
                 : $@"
 
         private {serviceName} {implField} = null!;
-        public {interfaceName} {propName} => {implField} ??= new {serviceName}(_agent, $""{{_path}}/{builderOptions.PathCasingFn(propName)}"");";
+        public {interfaceName} {propName} => {implField} ??= new {serviceName}(_agent, $""{{_path}}/{segment ?? builderOptions.PathCasingFn(propName)}"");";
 
             string getPropertyParameters(out string pathSegments)
             {
@@ -234,7 +239,7 @@ using static HttPie.Generator.HttPieHelpers;
                 {
                     string paramName = ip.Name;
                     paramsDefinition += $"{comma}{GetType(usings, ip.Type)} {ip.Name}";
-                    pathSegments += $@"/{{{paramName}}}";
+                    pathSegments += $@"/{{{GetFormatterExpression(paramName, IsNullable(ip.Type), ip.Type, builderOptions.PathCasing)}}}";
                     comma ??= ", ";
                 }
 
@@ -242,6 +247,8 @@ using static HttPie.Generator.HttPieHelpers;
             }
         }
     }
+
+    private static bool FindSegmentAttr(AttributeData a) => a.AttributeClass is INamedTypeSymbol { Name: nameof(SegmentAttribute) };
 
     private static IEnumerable<string> BuildMethods(ITypeSymbol cls, SemanticModel semanticModel, BuilderOptions builderOptions, HashSet<string> usings)
     {
@@ -543,7 +550,7 @@ using static HttPie.Generator.HttPieHelpers;
         }
     }
 
-    private static string GetFormatterExpression(string value, bool isNullable, ITypeSymbol type, Casing propCasing)
+    private static string GetFormatterExpression(string value, bool isNullable, ITypeSymbol type, Casing propCasing, bool insideInterpolation = true)
     {
         var nullChar = isNullable ? "?" : "";
         return value + (type switch
@@ -557,9 +564,9 @@ using static HttPie.Generator.HttPieHelpers;
                 Casing.UpperCase => $"{nullChar}.ToUpper()",
                 Casing.LowerSnakeCase => $"{nullChar}.ToLowerSnakeCase()",
                 Casing.UpperSnakeCase => $"{nullChar}.ToUpperSnakeCase()",
-                _ => $"{nullChar}.ToString()"
+                _ => insideInterpolation ? "" : $"{nullChar}.ToString()"
             },
-            { SpecialType: not SpecialType.System_String } => ".ToString()",
+            { SpecialType: not SpecialType.System_String } => insideInterpolation ? "" : $"{nullChar}.ToString()",
             _ => "",
         });
     }
@@ -580,7 +587,7 @@ using static HttPie.Generator.HttPieHelpers;
         {
             string
                 queryParamName = builderOptions.QueryPropCasingFn(memberName),
-                queryParamValue = GetFormatterExpression($"query.{memberName}", isNullable, type, builderOptions.EnumQueryCasing);
+                queryParamValue = GetFormatterExpression($"query.{memberName}", isNullable, type, builderOptions.EnumQueryCasing, false);
 
             body += $@"
                 .Add(""{queryParamName}"", {(isNullable ? $"_query => _{queryParamValue}" : queryParamValue)})";

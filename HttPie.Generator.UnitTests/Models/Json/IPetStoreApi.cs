@@ -1,5 +1,6 @@
 using HttPie.Attributes;
 using HttPie.Enums;
+using HttPie.Generator.Attributes;
 using HttPie.Generator.Operations;
 
 namespace HttPie.Generator.UnitTests.Models.Json.Client
@@ -22,7 +23,8 @@ namespace HttPie.Generator.UnitTests.Models.Json.Client
     public interface IPet
     {
         IPetActionsByPetId this[long petId] { get; }
-        IPetActionsByStatus FindByStatus { get; }
+        [Segment("findByStatus")]
+        IPetActionsByStatus All { get; }
         IOrderActions Order { get; }
     }
 

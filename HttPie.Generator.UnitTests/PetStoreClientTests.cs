@@ -38,7 +38,7 @@ namespace HttPie.Generator.UnitTests
 
         public async Task<List<Pet>> GetPetsAsync()
         {
-            return await _client.Pet.FindByStatus.GetAsync(PetStatus.Pending);
+            return await _client.Pet.All.GetAsync(PetStatus.Pending);
         }
 
         [Fact]
