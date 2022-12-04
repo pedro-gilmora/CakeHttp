@@ -19,7 +19,6 @@
 		<Description>Generator for Rest Services through interfaces</Description>
 		<PackageReadmeFile>ReadMe.md</PackageReadmeFile>
 		<PackageTags>REST; Source Generator; C#; </PackageTags>
-		<PackageReleaseNotes>Generating ReST Services</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -41,9 +40,19 @@
 		<PackageReference Include="System.Text.Json" Version="7.0.0" PrivateAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
 
-	<ItemGroup>
+	<ItemGroup Condition=" '$(Configuration)' == 'Release' ">
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 		<None Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 	</ItemGroup>
+		
+	<PropertyGroup Condition=" '$(Configuration)' != 'Release' ">
+		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
+	</PropertyGroup>
+
+	<Target Name="GetDependencyTargetPaths" Condition=" '$(Configuration)' != 'Release' ">
+		<ItemGroup>
+			<TargetPathWithTargetPlatformMoniker Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" IncludeRuntimeDependency="false" />
+		</ItemGroup>
+	</Target>
 
 </Project>

@@ -10,9 +10,8 @@ using System.Collections.Immutable;
 using System.Text.Json;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-using HttPie.Policy;
-using System.Data;
 using HttPie.Generator.Internals;
+using HttPie.Enums;
 
 namespace HttPie.Generator;
 
@@ -511,7 +510,7 @@ using static HttPie.Generator.HttPieHelpers;
                 {
                     string
                         paramName = builderOptions.QueryPropCasingFn(queryParameterName),
-                        paramValue = CasingPolicy.GetConverterExpression(queryParameterName, queryType, builderOptions.EnumQueryCasing);
+                        paramValue = GetFormatterExpression(queryParameterName, IsNullable(queryType), queryType, builderOptions.EnumQueryCasing);
 
                     requestSyntax += $@"?{paramName}={{{paramValue}}}";
                 }
@@ -539,14 +538,33 @@ using static HttPie.Generator.HttPieHelpers;
 
         internal {signature}
         {{
-            {BuildQueryBuilderBody(builderOptions, queryTypeName, queryType)}
+            {BuildQueryBuilderBody(builderOptions, queryType)}
         }}";
         }
     }
 
-    //public const char EMPTY = char.MinValue;
+    private static string GetFormatterExpression(string value, bool isNullable, ITypeSymbol type, Casing propCasing)
+    {
+        var nullChar = isNullable ? "?" : "";
+        return value + (type switch
+        {
+            INamedTypeSymbol { EnumUnderlyingType: { } } => propCasing switch
+            {
+                Casing.Digit => $@"{nullChar}.ToString(""D"")",
+                Casing.CamelCase => $"{nullChar}.ToCamelCase()",
+                Casing.PascalCase => $"{nullChar}.ToPascalCase()",
+                Casing.LowerCase => $"{nullChar}.ToLower()",
+                Casing.UpperCase => $"{nullChar}.ToUpper()",
+                Casing.LowerSnakeCase => $"{nullChar}.ToLowerSnakeCase()",
+                Casing.UpperSnakeCase => $"{nullChar}.ToUpperSnakeCase()",
+                _ => $"{nullChar}.ToString()"
+            },
+            { SpecialType: not SpecialType.System_String } => ".ToString()",
+            _ => "",
+        });
+    }
 
-    private static string BuildQueryBuilderBody(BuilderOptions builderOptions, string queryTypeName, INamedTypeSymbol queryType)
+    private static string BuildQueryBuilderBody(BuilderOptions builderOptions, INamedTypeSymbol queryType)
     {
         bool isNullableParam = IsNullable(queryType);
         var items = GetQueryProperties(queryType);
@@ -562,8 +580,7 @@ using static HttPie.Generator.HttPieHelpers;
         {
             string
                 queryParamName = builderOptions.QueryPropCasingFn(memberName),
-                queryParamValue = CasingPolicy
-                    .GetConverterExpression($"query.{memberName}{(isNullable ? "?" : "")}", type, builderOptions.EnumQueryCasing);
+                queryParamValue = GetFormatterExpression($"query.{memberName}", isNullable, type, builderOptions.EnumQueryCasing);
 
             body += $@"
                 .Add(""{queryParamName}"", {(isNullable ? $"_query => _{queryParamValue}" : queryParamValue)})";

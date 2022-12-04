@@ -34,26 +34,6 @@ public class CasingPolicy : JsonNamingPolicy
         };
     }
 
-    internal static string GetConverterExpression(string value, ITypeSymbol type, Casing propCasing)
-    {
-        return type switch
-        {
-            INamedTypeSymbol { EnumUnderlyingType: not null } => value + propCasing switch
-            {
-                Casing.Digit => @".ToString(""D"")",
-                Casing.CamelCase => ".ToCamelCase()",
-                Casing.PascalCase => ".ToPascalCase()",
-                Casing.LowerCase => ".ToLower()",
-                Casing.UpperCase => ".ToUpper()",
-                Casing.LowerSnakeCase => ".ToLowerSnakeCase()",
-                Casing.UpperSnakeCase => ".ToUpperSnakeCase()",
-                _ => ".ToString()"
-            },
-            not { SpecialType: SpecialType.System_String } => value + ".ToString()",
-            _ => "",
-        };
-    }
-
     public static CasingPolicy Create(Casing casing) => new(casing);
 
     public override string ConvertName(string name)
