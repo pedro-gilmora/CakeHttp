@@ -23,12 +23,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Remove="ApiGenerator.cs" />
-		<Compile Remove="ApiGenerator.old.cs" />
-		<Compile Remove="ApiMetadata.old.cs" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<None Include="..\ReadMe.md">
 			<Pack>True</Pack>
 			<PackagePath>\</PackagePath>

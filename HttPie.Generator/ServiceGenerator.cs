@@ -517,7 +517,7 @@ using static HttPie.Generator.HttPieHelpers;
                 }
                 else
                 {
-                    requestSyntax += $@"?{{_agent.BuildQuery({queryParameterName})}}";
+                    requestSyntax += $@"{{_agent.BuildQuery({queryParameterName})}}";
 
                     var signature = $@"string BuildQuery({queryTypeName} query)";
 
