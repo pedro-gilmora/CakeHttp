@@ -18,7 +18,7 @@
 		<Company>AsereHighDev</Company>
 		<Description>Generator for Rest Services through interfaces</Description>
 		<PackageReadmeFile>ReadMe.md</PackageReadmeFile>
-		<PackageTags>REST; Source Generator; C#; </PackageTags>
+		<PackageTags>REST; Source Generator; C#;</PackageTags>
 	</PropertyGroup>
 
 	<ItemGroup>

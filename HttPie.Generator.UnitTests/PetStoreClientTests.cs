@@ -44,11 +44,12 @@ namespace HttPie.Generator.UnitTests
         [Fact]
         public async Task ShouldMakeTheCallWithIndexer()
         {
-            FileInfo file = new("perrito.jpeg");
-            var pets = await GetPetsAsync();
-            pets.Should().HaveCountGreaterThan(0);
-            var serverResponse = await _client.Pet[pets[0].Id].UploadImage.PostAsync(file);
-            serverResponse.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
+            if (await GetPetsAsync() is [{ Id: { } firstPetId }])
+            {
+                FileInfo file = new("perrito.jpeg");
+                var serverResponse = await _client.Pet[firstPetId].UploadImage.PostAsync(file);
+                serverResponse.Should().BeOfType<ApiResponse>().Subject.Code.Should().Be(200);
+            }
         }
     }
 

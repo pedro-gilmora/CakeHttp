@@ -12,6 +12,8 @@ using System.Xml.Serialization;
 using System.Text;
 using HttPie.Enums;
 using HttPie.Attributes;
+using System.Net.Http.Headers;
+using HttPie.Generator.Constants;
 
 namespace HttPie.Generator
 {
@@ -29,18 +31,28 @@ namespace HttPie.Generator
 
         public static T[] ArrayFrom<T>(params T[] items) => items;
 
-        public static HttpRequestException GetJsonException<T>(this HttpResponseMessage response, JsonSerializerOptions opts, CancellationToken cancellation) {
+        public static HttpRequestException RequestException(this HttpResponseMessage response) 
+        {
             var result = new HttpRequestException(response.ReasonPhrase);
-            if (response.Content is JsonContent { } content)
-                result.Data[Constants.Constants.EXCEPTION_CONTENT] = content.ReadFromJsonAsync<T>(opts, cancellation);
+            
+            if(response.Content is { })
+                result.Data[ConstantValues.EXCEPTION_CONTENT] = response.Content;
+
             return result;
         }
 
-        public static HttpRequestException GetXmlException<T>(this HttpResponseMessage response, CancellationToken cancellation) {
-            var result = new HttpRequestException(response.ReasonPhrase);
-            if (response.Content is { } content)
-                result.Data[Constants.Constants.EXCEPTION_CONTENT] = content.ReadFromXmlAsync<T>(cancellation);
-            return result;
+        public static async Task<T?> ReadExceptionContent<T>(this HttpRequestException exception, JsonSerializerOptions? opts = null, CancellationToken cancellation = default) 
+        {
+            if(exception.Data.Contains(ConstantValues.EXCEPTION_CONTENT) && exception.Data[ConstantValues.EXCEPTION_CONTENT] is HttpContent content)
+            {
+                if (content is JsonContent or { Headers.ContentType.MediaType: "application/json" })
+                    return await content.ReadFromJsonAsync<T>(opts ?? new(), cancellation);
+                else if (content is { Headers.ContentType.MediaType: [.., '/', 'x', 'm', 'l'] })
+                    return await content.ReadFromXmlAsync<T>(cancellation);
+                else if (typeof(T) == typeof(string))
+                    return (T)(object)await content.ReadAsStringAsync();
+            }
+            return default;
         }
 
         public static FormUrlEncodedContent CreateFormUrlEncoded<T>(this IEnumerable<KeyValuePair<string, string>> dictionary)

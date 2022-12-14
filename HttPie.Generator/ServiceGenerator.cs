@@ -13,6 +13,7 @@ using System.Runtime.CompilerServices;
 using HttPie.Generator.Internals;
 using HttPie.Enums;
 using HttPie.Generator.Attributes;
+using System.Reflection.Metadata;
 
 namespace HttPie.Generator;
 
@@ -409,7 +410,7 @@ using static HttPie.Generator.HttPieHelpers;
                     await responseContent.ReadFrom{returnFormatType}Async<{returnTypeName = GetType(usings, returnType)}>({Concat(options, cancelToken)}),
 
                 {{ IsSuccessStatusCode: false }} => 
-                    throw new HttpRequestException(response.ReasonPhrase),
+                    throw response.RequestException(),
 
                 _ => default({returnTypeName})
             }};";
