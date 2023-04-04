@@ -7,7 +7,7 @@ namespace HttPie.Generator;
 
 public sealed class QueryBuilder : IEnumerable
 {
-    private readonly StringBuilder query = new();
+    private readonly StringBuilder _query = new();
 
     public static QueryBuilder StartWith(string key, string value)
     {
@@ -25,18 +25,18 @@ public sealed class QueryBuilder : IEnumerable
 
     public QueryBuilder Add(string key, string value)
     {
-        query.Append($"{(query.Length > 0 ? "&" : "?")}{key}={value}");
+        _query.Append($"{(_query.Length > 0 ? "&" : "?")}{key}={value}");
         return this;
     }
 
     public override string ToString()
     {
-        return query.ToString();
+        return _query.ToString();
     }
 
     public IEnumerator GetEnumerator()
     {
-        return query.ToString().GetEnumerator();
+        return _query.ToString().GetEnumerator();
     }
 }
 

@@ -20,9 +20,9 @@ namespace HttPie.Generator;
 [Generator]
 public class ServiceClientGenerator : IIncrementalGenerator
 {
-    static volatile object _lock = new();
-    static readonly DiagnosticDescriptor propertyDiagnosis = new("SG001", "Interface {0} has not defined properties for posible nested services", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
-    static readonly DiagnosticDescriptor methodDiagnosis = new("SG002", "Interface {0} has not defined method to implement", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
+    private static volatile object _lock = new();
+    private static readonly DiagnosticDescriptor PropertyDiagnosis = new("SG001", "Interface {0} has not defined properties for posible nested services", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
+    private static readonly DiagnosticDescriptor MethodDiagnosis = new("SG002", "Interface {0} has not defined method to implement", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         lock (_lock)
@@ -64,7 +64,6 @@ public class ServiceClientGenerator : IIncrementalGenerator
 
             CollectAndBuildRelatedTypes(
                 fileAndContent,
-                productionContext,
                 semanticModel,
                 typeSymbol,
                 clientName,
@@ -78,12 +77,16 @@ using HttPie.Generator;
 using HttPie.Policy;
 using HttPie.Enums;
 using HttPie.Converters;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
 {{
     internal sealed class {builderOptions.AgentTypeName} 
     {{
-
+        internal Dictionary<string, object> DefaultQueryValues = new();
+        internal System.Func<HttpRequestMessage, Task> DefaultBeforeSend = _ => Task.CompletedTask;
+        internal System.Func<HttpResponseMessage, Task> DefaultAfterSend = _ => Task.CompletedTask;
         internal HttpClient _httpClient;{(builderOptions.NeedsJsonOptions ? @"
         internal JsonSerializerOptions _jsonOptions;" : "")}
 
@@ -100,6 +103,17 @@ namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
         }}{builderOptions.HelperMethods.Values.Join(@"
                 
         ")}
+
+        internal Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancelToken) {{
+            return _httpClient.SendAsync(request, cancelToken);
+        }}
+
+        internal string GetUrl(string baseUrl) {{
+            var append = DefaultQueryValues.Select(kv => kv.Key + ""="" + kv.Value?.ToString()).Join(""&"");
+            if(!baseUrl.Contains(""?"") && append.Length > 0)
+                baseUrl += ""?"";
+            return baseUrl + append;
+        }}
     }}
 }}";
 
@@ -109,7 +123,7 @@ namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
 
             foreach (var kv in fileAndContent)
             {
-                string code = $@"//<auto generated>
+                var code = $@"//<auto generated>
 using static HttPie.Generator.HttPieHelpers;
 {kv.Value}";
                 productionContext.AddSource($"{clientName}.{kv.Key}.g.cs", code);
@@ -122,7 +136,7 @@ using static HttPie.Generator.HttPieHelpers;
 
     }
 
-    private static string GenerateCaseConverter(BuilderOptions builderOptions, string prop, string separatorTrivia, string fallBackConverter = "value => value")
+    private static string GenerateCaseConverter(BuilderOptions builderOptions, string prop, string separatorTrivia, string? fallBackConverter = "value => value")
     {
         return builderOptions.PropertyCasing != Enums.Casing.None
                             ? $"{separatorTrivia}{prop} = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing})"
@@ -131,9 +145,9 @@ using static HttPie.Generator.HttPieHelpers;
                                 : "";
     }
 
-    private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SourceProductionContext productionContext, SemanticModel semanticModel, ITypeSymbol typeSymbol, string typeName, string interfaceName, BuilderOptions builderOptions, bool root)
+    private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SemanticModel semanticModel, ITypeSymbol typeSymbol, string typeName, string interfaceName, BuilderOptions builderOptions, bool root)
     {
-        string absolutePath = builderOptions.BaseUrl.AbsolutePath;
+        var absolutePath = builderOptions.BaseUrl.AbsolutePath;
 
         if (absolutePath.EndsWith("/"))
             absolutePath = absolutePath[..^1];
@@ -143,23 +157,28 @@ using static HttPie.Generator.HttPieHelpers;
             _path = ""{absolutePath}"";            
         }}";
 
-        fileAndContent[typeName] = createType(typeSymbol, typeName, interfaceName, ctor, root);
+        fileAndContent[typeName] = CreateType(builderOptions, semanticModel, fileAndContent, typeSymbol, typeName, interfaceName, ctor, root);
 
-        string createType(ITypeSymbol typeSymbol, string typeName, string underlyingInterface, string ctor, bool root = false)
-        {
+    }
+
+    private static string CreateType(BuilderOptions builderOptions, SemanticModel semanticModel, Dictionary<string, string> fileContent, ITypeSymbol typeSymbol, string typeName, string underlyingInterface, string ctor, bool root = false)
+    {
             var containingNameSpace = typeSymbol.ContainingNamespace.ToDisplayString();
             var usings = new HashSet<string>() { };
 
             try
             {
-                string classType = $@"namespace {containingNameSpace}
+                var classType = $@"namespace {containingNameSpace}
 {{
-    public sealed {(root ? "partial" : "")} class {typeName} : {underlyingInterface} 
+    public sealed partial class {typeName} : {underlyingInterface} 
     {{
         private readonly {builderOptions.AgentTypeName} _agent;
-        private readonly string _path;
+        private readonly string _path;{(root ? $@"        
+        internal Dictionary<string, object> DefaultQueryValues {{ get => _agent.DefaultQueryValues; set => _agent.DefaultQueryValues = value; }}
+        internal System.Func<HttpRequestMessage, Task> DefaultBeforeSend {{ get => _agent.DefaultBeforeSend; set => _agent.DefaultBeforeSend = value; }}
+        internal System.Func<HttpResponseMessage, Task> DefaultAfterSend {{ get => _agent.DefaultAfterSend; set => _agent.DefaultAfterSend = value; }}" : "")}
         
-        {ctor}{getMembers().Join()}
+        {ctor}{GetMembers().Join()}
     }}
 }}";
                 return $@"{usings.Union(new[] { "HttPie.Generator" }).Except(new[] { containingNameSpace }).Join(u => $"using {u};", @"
@@ -172,80 +191,64 @@ using static HttPie.Generator.HttPieHelpers;
                 return $"/*{e}*/";
             }
 
-            IEnumerable<string> getMembers()
+            IEnumerable<string> GetMembers()
             {
                 //int propsCount = 0, methodsCount = -1;
 
                 if (typeSymbol.GetMembers().OfType<IPropertySymbol>() is { } props)
                     foreach (var prop in props)
-                        yield return buildPropertyAndTypes(prop.Name,
+                        yield return BuildPropertyAndTypes(builderOptions, semanticModel, fileContent, prop.Name,
                     prop.GetAttributes()
                         .FirstOrDefault(FindSegmentAttr) is { ConstructorArguments: [{ Value: string value }] }
                             ? value
                             : null, prop.Type, prop.IsIndexer, prop.Parameters, GetType(usings, prop.Type), usings);
 
 
-                if (BuildMethods(typeSymbol, semanticModel, builderOptions, usings).ToImmutableArray() is { Length: int mLen and > 0 } methods)
+                if (BuildMethods(typeSymbol, semanticModel, builderOptions, usings).ToImmutableArray() is { Length: > 0 } methods)
                     foreach (var methodStr in methods)
                         yield return methodStr;
-
-                //if (typeSymbol.Locations.FirstOrDefault() is { } firstLocation)
-                //{
-                //    if (propsCount == 0)
-                //        productionContext.ReportDiagnostic(
-                //                Diagnostic.Create(
-                //                       propertyDiagnosis,
-                //                       firstLocation));
-
-                //    if (methodsCount == 0)
-                //        productionContext.ReportDiagnostic(
-                //                Diagnostic.Create(
-                //                       methodDiagnosis,
-                //                       firstLocation));
-                //}
             }
 
         }
 
-        string buildPropertyAndTypes(string propName, string? segment, ITypeSymbol type, bool isIndexer, ImmutableArray<IParameterSymbol> parameters, string interfaceName, HashSet<string> usings)
-        {
-            string
-                serviceName = $"{interfaceName[1..]}Service",
-                implField = $"_{char.ToLower(serviceName[0]) + serviceName[1..]}";
-            var ctor = $@"internal {serviceName}({builderOptions.AgentTypeName} agent, string path)
+    private static string BuildPropertyAndTypes(BuilderOptions builderOptions, SemanticModel semanticModel, Dictionary<string, string> fileContent, string propName, string? segment, ITypeSymbol type, bool isIndexer, ImmutableArray<IParameterSymbol> parameters, string interfaceName, HashSet<string> usings)
+    {
+        string
+            serviceName = $"{interfaceName[1..]}Service",
+            implField = $"_{char.ToLower(serviceName[0]) + serviceName[1..]}";
+        var ctor = $@"internal {serviceName}({builderOptions.AgentTypeName} agent, string path)
         {{
             _agent = agent;
             _path = path;            
         }}";
 
-            if (!fileAndContent.ContainsKey(serviceName))
-                fileAndContent[serviceName] = createType(type, serviceName, interfaceName, ctor, true);
+        if (!fileContent.ContainsKey(serviceName))
+            fileContent[serviceName] = CreateType(builderOptions, semanticModel, fileContent, type, serviceName, interfaceName, ctor, true);
 
-            return isIndexer
-                ? $@"
+        return isIndexer
+            ? $@"
 
-        public {interfaceName} this[{getPropertyParameters(out var paramsSegments)}] => new {serviceName}(_agent, $""{{_path}}{paramsSegments}"");"
-                : $@"
+        public {interfaceName} this[{GetPropertyParameters(out var paramsSegments)}] => new {serviceName}(_agent, $""{{_path}}{paramsSegments}"");"
+            : $@"
 
         private {serviceName} {implField} = null!;
         public {interfaceName} {propName} => {implField} ??= new {serviceName}(_agent, $""{{_path}}/{segment ?? builderOptions.PathCasingFn(propName)}"");";
 
-            string getPropertyParameters(out string pathSegments)
+        string GetPropertyParameters(out string pathSegments)
+        {
+            string? comma = null;
+            var paramsDefinition = "";
+            pathSegments = "";
+
+            foreach (var ip in parameters)
             {
-                string? comma = null;
-                var paramsDefinition = "";
-                pathSegments = "";
-
-                foreach (var ip in parameters)
-                {
-                    string paramName = ip.Name;
-                    paramsDefinition += $"{comma}{GetType(usings, ip.Type)} {ip.Name}";
-                    pathSegments += $@"/{{{GetFormatterExpression(paramName, IsNullable(ip.Type), ip.Type, builderOptions.PathCasing)}}}";
-                    comma ??= ", ";
-                }
-
-                return paramsDefinition;
+                var paramName = ip.Name;
+                paramsDefinition += $"{comma}{GetType(usings, ip.Type)} {ip.Name}";
+                pathSegments += $@"/{{{GetFormatterExpression(paramName, IsNullable(ip.Type), ip.Type, builderOptions.PathCasing)}}}";
+                comma ??= ", ";
             }
+
+            return paramsDefinition;
         }
     }
 
@@ -257,9 +260,9 @@ using static HttPie.Generator.HttPieHelpers;
 
         ForEach(cls.DeclaringSyntaxReferences.AsSpan(), sr =>
         {
-            if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: int startPoint, Types: var baseTypes } baseList } iFace)
+            if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: var startPoint, Types: var baseTypes } baseList } iFace)
                 return;
-
+            
             Queue<SyntaxTrivia> comments = new(iFace.DescendantTrivia(baseList.FullSpan).Where(c => c.IsKind(SyntaxKind.SingleLineCommentTrivia)));
 
             ForEach(baseTypes.ToImmutableArray().AsSpan(), baseTypeDecl =>
@@ -267,11 +270,11 @@ using static HttPie.Generator.HttPieHelpers;
                 if (baseTypeDecl.Type is not GenericNameSyntax { TypeArgumentList: { LessThanToken: var ltk, Arguments: { Count: int argsCount and > 0 } args } } type)
                     return;
 
-                INamedTypeSymbol paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
+                var paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
 
                 OperationDescriptor opDescriptor = new(builderOptions);
 
-                for (int i = 0; i < argsCount; i++)
+                for (var i = 0; i < argsCount; i++)
 
                     switch (paramType.TypeParameters[i])
                     {
@@ -286,7 +289,7 @@ using static HttPie.Generator.HttPieHelpers;
                             break;
                     }
 
-                int endPoint = type.SpanStart;
+                var endPoint = type.SpanStart;
 
                 GetComment(comments, startPoint, endPoint, opDescriptor);
 
@@ -322,14 +325,14 @@ using static HttPie.Generator.HttPieHelpers;
 
     private static void GetComment(Queue<SyntaxTrivia> comments, int startPoint, int endPoint, OperationDescriptor desc)
     {
-        SyntaxTrivia comm = comments.FirstOrDefault();
+        var comm = comments.FirstOrDefault();
 
         if (!TextSpan.FromBounds(startPoint, endPoint).Contains(comm.FullSpan))
             return;
 
         ForEach<string[]>(GetMetadata(comm).AsSpan(), parts =>
         {
-            (string key, string value) = (parts[0].Trim(), parts[1].Trim());
+            var ( key,  value) = (parts[0].Trim(), parts[1].Trim());
             switch (key)
             {
                 case "contentType":
@@ -364,13 +367,7 @@ using static HttPie.Generator.HttPieHelpers;
         }
     }
 
-    private static string[] GetHeaderTuple(JsonElement r)
-    {
-        var jsonElements = r.EnumerateArray().ToArray();
-        return new[] { jsonElements[0].GetString()!, jsonElements[1].GetString()! };
-    }
-
-    static void ForEach<T>(ReadOnlySpan<T> data, Action<T> action)
+    private static void ForEach<T>(ReadOnlySpan<T> data, Action<T> action)
     {
         ref var searchSpace = ref MemoryMarshal.GetReference(data);
         for (int i = 0, length = data.Length; i < length; i++)
@@ -379,23 +376,23 @@ using static HttPie.Generator.HttPieHelpers;
         }
     }
 
-    const string defaultCancelToken = "default";
+    private const string DefaultCancelToken = "default";
 
     private static string GenerateMethod(HashSet<string> usings, BuilderOptions builderOptions, IMethodSymbol method, OperationDescriptor contentDesc)
     {
         string name = method.Name,
             methodType = name[..^5],
             pathVar = "_path",
-            cancelToken = defaultCancelToken,
-            parameters = buildParameters(out string? queryReference, out string? contentRefernce);
+            cancelToken = DefaultCancelToken,
+            parameters = BuildParameters(out var queryReference, out var contentRefernce);
         return @$"
 
-        public async Task{buildReturnType(out var returnType, out var responseHandler)} {name}({parameters})
+        public async Task{BuildReturnType(out var returnType, out var responseHandler)} {name}({parameters})
         {{
-            {buildRequestSubmission()}{responseHandler}
+            {BuildRequestSubmission()}{responseHandler}
         }}";
 
-        string? buildReturnType(out string? returnTypeName, out string? responseHandler)
+        string? BuildReturnType(out string? returnTypeName, out string? responseHandler)
         {
             if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: var returnFormatType })
                 return responseHandler = returnTypeName = null;
@@ -418,7 +415,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         }
 
-        string buildParameters(out string? queryReference, out string? contentRefernce)
+        string BuildParameters(out string? queryReference, out string? contentRefernce)
         {
             contentRefernce = queryReference = null;
             var paramSkip = 0;
@@ -431,7 +428,7 @@ using static HttPie.Generator.HttPieHelpers;
                 var queryTypeName = GetType(usings, queryType);
 
                 parametersSyntax += $@"{queryTypeName} {queryParameterName}";
-                queryReference = buildQueryParams(queryTypeName, out pathVar);
+                queryReference = BuildQueryParams(queryTypeName, out pathVar);
             }
 
             if (contentDesc is { ContentFormatType: { } contentDocType, ContentParameterName: { } contentParamName, ContentType: INamedTypeSymbol contentType })
@@ -477,7 +474,7 @@ using static HttPie.Generator.HttPieHelpers;
                     paramType = GetType(usings, param.Type),
                     paramName = param.Name;
 
-                if (cancelToken == defaultCancelToken && paramType == "CancellationToken")
+                if (cancelToken == DefaultCancelToken && paramType == "CancellationToken")
                     cancelToken = paramName;
 
                 parametersSyntax += $"{paramType} {paramName}";
@@ -488,22 +485,20 @@ using static HttPie.Generator.HttPieHelpers;
             return parametersSyntax;
         }
 
-        string buildRequestSubmission()
+        string BuildRequestSubmission()
         {
 
-            return $@"{queryReference}var request = new HttpRequestMessage(HttpMethod.{methodType}, new Uri({pathVar}, UriKind.Relative)){contentRefernce};
+            return $@"{queryReference}var request = new HttpRequestMessage(HttpMethod.{methodType}, new Uri(_agent.GetUrl({pathVar}), UriKind.Relative)){contentRefernce};
 
-            if(beforeSend != null)
-                await beforeSend(request);
+            await (_agent.DefaultBeforeSend + beforeSend)(request);
 
-            var response = await _agent._httpClient.SendAsync(request, {cancelToken});
+            var response = await _agent.SendAsync(request, {cancelToken});
             
-            if(afterSend != null)
-                await afterSend(response);";
+            await (_agent.DefaultAfterSend + afterSend)(response);";
 
         }
 
-        string buildQueryParams(string queryTypeName, out string pathVar)
+        string BuildQueryParams(string queryTypeName, out string pathVar)
         {
             pathVar = "_path";
 
@@ -529,7 +524,7 @@ using static HttPie.Generator.HttPieHelpers;
                     var signature = $@"string BuildQuery({queryTypeName} query)";
 
                     if(!builderOptions.HelperMethods.ContainsKey(signature))
-                        registerQueryBuilder(queryTypeName, queryType, signature);
+                        RegisterQueryBuilder(queryTypeName, queryType, signature);
                 }
                 requestSyntax += @""";
             ";
@@ -540,7 +535,7 @@ using static HttPie.Generator.HttPieHelpers;
             return "";
         }
 
-        string registerQueryBuilder(string queryTypeName, INamedTypeSymbol queryType, string signature)
+        string RegisterQueryBuilder(string queryTypeName, INamedTypeSymbol queryType, string signature)
         {
             return builderOptions.HelperMethods[signature] = $@"
 
@@ -574,7 +569,7 @@ using static HttPie.Generator.HttPieHelpers;
 
     private static string BuildQueryBuilderBody(BuilderOptions builderOptions, INamedTypeSymbol queryType)
     {
-        bool isNullableParam = IsNullable(queryType);
+        var isNullableParam = IsNullable(queryType);
         var items = GetQueryProperties(queryType);
         var body = "return QueryBuilder.With(query)";
 
@@ -584,7 +579,7 @@ using static HttPie.Generator.HttPieHelpers;
 
         int indent = isNullableParam ? 4 : 3, itemsLen = items.Length;
 
-        foreach ((int i, string memberName, ITypeSymbol type, bool isNullable) in items)
+        foreach (var( i,  memberName,  type, isNullable) in items)
         {
             string
                 queryParamName = builderOptions.QueryPropCasingFn(memberName),

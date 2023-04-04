@@ -19,7 +19,7 @@ namespace HttPie.Generator.UnitTests
         public async Task ShouldMakeTheCall()
         {
             //Just a comment to deploy
-            TravelerInformationResponse travellers = await _client.Traveler.GetAsync(PetStatus.Pending);
+            var travellers = await _client.Traveler.GetAsync(PetStatus.Pending);
             travellers.Should().NotBeNull();
             travellers.Travelers.Items.Should().HaveCount(travellers.PerPage);
         }
@@ -28,7 +28,7 @@ namespace HttPie.Generator.UnitTests
         public async Task ShouldMakeIndexerTheCall()
         {
             const int id = 11187;
-            TravelerInformation traveller = await _client.Traveler[id].GetAsync();
+            var traveller = await _client.Traveler[id].GetAsync();
             traveller.Should().NotBeNull();
             traveller.Id.Should().Be(id);
         }

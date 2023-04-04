@@ -77,7 +77,7 @@ namespace HttPie.Generator
         public static MultipartFormDataContent CreateMultipartFormData(this (HttpContent, string?, string?)[] contents)
         {
             MultipartFormDataContent multipartFormDataContent = new();
-            foreach((HttpContent content, string? name, string? fileName) in contents)
+            foreach((var content, var name, var fileName) in contents)
             {
                 if (content != null)
                     if (fileName != null)
@@ -103,10 +103,10 @@ namespace HttPie.Generator
         public static string ToCamelCase(this string name)
         {
             StringBuilder builder = new();
-            int current = -1;
-            int length = name.Length;
-            bool needUpper = true;
-            char lastChar = char.MinValue;
+            var current = -1;
+            var length = name.Length;
+            var needUpper = true;
+            var lastChar = char.MinValue;
 
             while (++current < length)
             {
@@ -147,10 +147,10 @@ namespace HttPie.Generator
         public static string ToPascalCase(this string name)
         {
             StringBuilder builder = new();
-            int current = -1;
-            int length = name.Length;
-            bool needUpper = true;
-            char lastChar = char.MinValue;
+            var current = -1;
+            var length = name.Length;
+            var needUpper = true;
+            var lastChar = char.MinValue;
 
             while (++current < length)
             {
@@ -187,10 +187,10 @@ namespace HttPie.Generator
         public static string ToLowerSnakeCase(this string name)
         {
             StringBuilder builder = new();
-            int current = -1;
-            int length = name.Length;
-            bool start = false;
-            char lastChar = char.MinValue;
+            var current = -1;
+            var length = name.Length;
+            var start = false;
+            var lastChar = char.MinValue;
 
             while (++current < length)
             {
@@ -203,7 +203,7 @@ namespace HttPie.Generator
                 }
                 else
                 {
-                    bool isUpper = char.IsUpper(ch);
+                    var isUpper = char.IsUpper(ch);
 
                     if ((char.IsLower(lastChar) && isUpper) || char.IsDigit(ch))
                         builder.Append('_');
@@ -226,10 +226,10 @@ namespace HttPie.Generator
         public static string ToUpperSnakeCase(this string name)
         {
             StringBuilder builder = new();
-            int current = -1;
-            int length = name.Length;
-            bool start = false;
-            char lastChar = char.MinValue;
+            var current = -1;
+            var length = name.Length;
+            var start = false;
+            var lastChar = char.MinValue;
 
             while (++current < length)
             {
@@ -242,7 +242,7 @@ namespace HttPie.Generator
                 }
                 else
                 {
-                    bool isUpper = char.IsUpper(ch);
+                    var isUpper = char.IsUpper(ch);
 
                     if ((char.IsLower(lastChar) && isUpper) || char.IsDigit(ch))
                         builder.Append('_');
