@@ -123,7 +123,7 @@ namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
             foreach (var kv in fileAndContent)
             {
                 var code = $@"//<auto generated>
-using static SourceCrafter.HttpServiceClient.HttPieHelpers;
+using static SourceCrafter.HttpServiceClient.HttpHelpers;
 {kv.Value}";
                 productionContext.AddSource($"{clientName}.{kv.Key}.g.cs", code);
             }
@@ -470,7 +470,7 @@ using static SourceCrafter.HttpServiceClient.HttPieHelpers;
 
                 var content = contentDocType switch
                 {
-                    "MultipartFormData" => $"{nameof(HttPieHelpers.ArrayFrom)}({BuildMultipartItems(usings, builderOptions, contentType, isFile, contentHeaders, contentParamName)})",
+                    "MultipartFormData" => $"{nameof(HttpHelpers.ArrayFrom)}({BuildMultipartItems(usings, builderOptions, contentType, isFile, contentHeaders, contentParamName)})",
 
                     "FormUrlEncoded" => $@"new Dictionary<string, string> {{
                     {BuildFormUrlEncodedItems(usings, builderOptions, contentType, contentHeaders)}
@@ -482,7 +482,7 @@ using static SourceCrafter.HttpServiceClient.HttPieHelpers;
                 parametersSyntax += $@"{contentTypeName} {contentParamName}";
 
                 contentRefernce = $@" {{
-                Content = HttPieHelpers.Create{contentDocType}({content}{(contentDocType == "Json" ? ", _agent._jsonOptions" : "")})
+                Content = HttpHelpers.Create{contentDocType}({content}{(contentDocType == "Json" ? ", _agent._jsonOptions" : "")})
             }}";
             }
 

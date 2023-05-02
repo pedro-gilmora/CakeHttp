@@ -14,7 +14,7 @@ using SourceCrafter.HttpServiceClient.Constants;
 
 namespace SourceCrafter.HttpServiceClient
 {
-    public static class HttPieHelpers
+    public static class HttpHelpers
     {
         public static string Join<T>(this IEnumerable<T> strs, Func<T, string> formmater, string? separator = "")
         {

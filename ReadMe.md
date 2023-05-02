@@ -1,7 +1,6 @@
-﻿# 🍰 **HttPie**: Next generation for Rest API Generation. 
->Sucessor for SourceCrafter.HttpServiceClient
+﻿# 🍰 **SourceCrafter.HttpClientGenerator**: Web API source generator for API interfaces. 
 
-## You just can build/update/generate* your API calls
+## You just can build | update | generate* your API calls
 
 ### Under these premises
 - Properties and indexers will generate path segments, encoded to url components
@@ -10,20 +9,20 @@
   - **`TContent? content`**: For POST, PUT and PATCH requests content.
   - **`TQuery? query`**: Generic parameter to be serialized into URL query components
   - **`Action<HttpClient, HttpRequestMessage>? requestHandler`**: A handler for requests before send it to the server
-    > Usage: Set some information to headers 
+    > Usage: Set some information to headers, transform
   - **`Action<HttpClient, HttpResponseMessage>? requestHandler`**: A handler for after get the response and before serialize the possible content coming from the server
-    > Usage: Gather information from response headers 
+    > Usage: Collect information from response headers, evaluate response composition 
   - **`CancellationToken? cancelToken`**: A cancellation token for this task
 
-### Operation metadata
-| Key                | Description                                                                                                                                                                                                         |
+### Operation metadata (comments before)
+| Key | Description  |
 |--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **`queryParamName`**     |  Sets the query parameter name. Defaults to query. E.g.: `?status=pending` whereas status is the `queryParamName` for a value type parameter                                                                            |
-| **`contentParamName`**   |  Sets the content parameter name. Defaults to content. For `MultipartFormData` or `FormUrlEncoded` content types creates a named item for value type parameters                                                         |
-| **`contentFormatType`**  |  Determines the content format type. `MultipartFormData` and `FormUrlEncoded`. For `Xml`, a `StreamContent` is created to transport the serialized data. `Json` uses the same `System.Net.Http.Json.JsonContent` are available  |
+| **`queryParamName`** |  Sets the query parameter name. Defaults to query. E.g.: `?status=pending` whereas status is the `queryParamName` for a value type parameter                                                                            |
+| **`contentParamName`** |  Sets the content parameter name. Defaults to content. For `MultipartFormData` or `FormUrlEncoded` content types creates a named item for value type parameters                                                         |
+| **`contentFormatType`** |  Determines the content format type. `MultipartFormData` and `FormUrlEncoded`. For `Xml`, a `StreamContent` is created to transport the serialized data. `Json` uses the same `System.Net.Http.Json.JsonContent` are available  |
 | **`responseFormatType`** |  Determines the response format type. Just `Xml` and `Json`                                                                                                                                                             |
 
->Rest of `{key}: {value}` pairs parsed on comments will be trated as request headers
+> Rest of `{key}: {value}` pairs parsed on comments will be trated as request headers
 
 ---
 
@@ -33,28 +32,31 @@
 ```csharp
 // Generates a client class with the following name convention
 // Takes Name from I{Name}Api and adds 'Client' to the end
-var _cakeClient = new PetStoreClient();
+var _petStoreClient = new PetStoreClient();
 ```
 
 ### The usage
 ```csharp
 //will produce a call to https://petstore.swagger.io/v2/store/inventory
-var inventory = await _cakeClient.Store.Inventory.GetAsync();
+var inventory = await _petStoreClient.Store.Inventory.GetAsync();
 ```
 
 ### The structure (*generated)
 ```csharp
-[HttpOptions("https://petstore.swagger.io/v2/", 
-// Url Encode properties are formatted specific casing (CamelCase, PascalCase, Upper and Lower snake casing)
-QueryCasing = Casing.CamelCase, 
-// Path segments casing format
-PathCasing = Casing.CamelCase, 
-// Enum values casing format on query and path. None for its underlying value
-EnumQueryCasing = Casing.CamelCase, 
-// Enum values casing format on content serialization
-EnumSerializationCasing = Casing.CamelCase, 
-// Properties casing format on content serialization
-PropertyCasing = Casing.CamelCase)]
+[HttpOptions(
+    //API Url
+    "https://petstore.swagger.io/v2/", 
+    // Url Encode properties are formatted specific casing (CamelCase, PascalCase, Upper and Lower snake casing)
+    QueryCasing = Casing.CamelCase, 
+    // Path segments casing format
+    PathCasing = Casing.CamelCase, 
+    // Enum values casing format on query and path. None for its underlying value
+    EnumQueryCasing = Casing.CamelCase, 
+    // Enum values casing format on content serialization
+    EnumSerializationCasing = Casing.CamelCase, 
+    // Properties casing format on content serialization
+    PropertyCasing = Casing.CamelCase
+)]
 public interface IPetStoreApi
 {
     IStore Store { get; }
@@ -209,7 +211,7 @@ public interface IPetActionsByPetIdUploadImage :
 would generate the following service class (based on the previous definition example):
 ```csharp
 //<auto generated>
-using static SourceCrafter.HttpServiceClient.HttPieHelpers;
+using static SourceCrafter.HttpServiceClient.HttpHelpers;
 using System.Net.Http.Json;
 using System.IO;
 using System;
@@ -235,7 +237,7 @@ namespace Domain.Service
         public async Task<ApiResponse> PostAsync(FileInfo file, Func<HttpRequestMessage, Task> beforeSend = default, Func<HttpResponseMessage, Task> afterSend = default, CancellationToken cancellationToken = default)
         {
             var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_path, UriKind.Relative)) {
-                Content = HttPieHelpers.CreateMultipartFormData(ArrayFrom((file.ToByteArrayContent(), "file", file.Name)))
+                Content = HttpHelpers.CreateMultipartFormData(ArrayFrom((file.ToByteArrayContent(), "file", file.Name)))
             };
             var response = await _agent._httpClient.SendAsync(request, cancellationToken);
 
@@ -253,9 +255,3 @@ namespace Domain.Service
     }
 }
 ```
-
-
-___
-
-## TODO:
-- Manage body and response content headers properly
