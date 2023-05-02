@@ -1,5 +1,5 @@
 ﻿# 🍰 **HttPie**: Next generation for Rest API Generation. 
->Sucessor for HttPie.Generator
+>Sucessor for SourceCrafter.HttpServiceClient
 
 ## You just can build/update/generate* your API calls
 
@@ -209,7 +209,7 @@ public interface IPetActionsByPetIdUploadImage :
 would generate the following service class (based on the previous definition example):
 ```csharp
 //<auto generated>
-using static HttPie.Generator.HttPieHelpers;
+using static SourceCrafter.HttpServiceClient.HttPieHelpers;
 using System.Net.Http.Json;
 using System.IO;
 using System;
@@ -217,7 +217,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Threading;
 using Domain.Service.Models;
-using HttPie.Generator;
+using SourceCrafter.HttpServiceClient;
 
 namespace Domain.Service
 {
