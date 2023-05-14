@@ -1,49 +1,54 @@
 using FluentAssertions;
 using HttpServiceClient.UnitTests.Models.Json;
 using HttpServiceClient.UnitTests.Models.Xml;
+using Xunit.Abstractions;
 
-namespace SourceCrafter.HttpServiceClient.UnitTests
+namespace SourceCrafter.HttpServiceClient.UnitTests;
+
+public class TravellerClientTests : IClassFixture<TravellerClient>
 {
-    public class TravellerClientTests : IClassFixture<TravellerClientTestSetup>
+    private readonly TravellerClient _client;
+
+    public TravellerClientTests(TravellerClient clientSetup)
     {
-        private readonly TravellerClient _client;
+        _client = clientSetup;
+    }
 
-        public TravellerClientTests(TravellerClientTestSetup clientSetup)
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ShouldGetAllItems(bool useDedicatedService)
+    {
+        //Just a comment to deploy
+        if (await GetTravellers(useDedicatedService) is { } travellers)
         {
-            _client = clientSetup._client;
-        }
-
-        [Fact]
-        public async Task ShouldMakeTheCall()
-        {
-            //Just a comment to deploy
-            var travellers = await _client.Traveler.GetAsync(PetStatus.Pending);
             travellers.Should().NotBeNull();
             travellers.Travelers.Items.Should().HaveCount(travellers.PerPage);
         }
+    }
 
-        [Fact]
-        public async Task ShouldMakeIndexerTheCall()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ShouldMakeIndexerTheCall(bool useDedicatedService)
+    {
+        var result = await GetTravellers(useDedicatedService);
+        if (result is { Travelers.Items:[ { Id: { } id },..] } && await GetTravelerById(useDedicatedService, id) is { } traveller)
         {
-            const int id = 11187;
-            var traveller = await _client.Traveler[id].GetAsync();
             traveller.Should().NotBeNull();
             traveller.Id.Should().Be(id);
         }
     }
 
-    public class TravellerClientTestSetup : IDisposable
+    private async Task<TravelerInformationResponse?> GetTravellers(bool useDedicatedService)
     {
-        public TravellerClient _client;
+        var _ITravellerActions = useDedicatedService ? new TravellerActionsService() : _client.Traveler;
+        return await _ITravellerActions.GetAsync(PetStatus.Pending);
+    }
 
-        public TravellerClientTestSetup()
-        {
-            _client = new();
-        }
-
-        public void Dispose()
-        {
-            _client = null!;
-        }
+    private async Task<TravelerInformation?> GetTravelerById(bool useDedicatedService, int id)
+    {
+        var _ITravellerActions = useDedicatedService ? new TravelerByIdService(id) : _client.Traveler[id];
+        return await _ITravellerActions.GetAsync();
     }
 }

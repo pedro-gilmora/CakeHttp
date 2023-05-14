@@ -5,22 +5,14 @@ using SourceCrafter.HttpServiceClient.Operations;
 
 namespace HttpServiceClient.UnitTests.Models.Xml;
 
-[HttpOptions(
-    "http://restapi.adequateshop.com/api/", 
-    QueryCasing = Casing.CamelCase, 
-    DefaultBodyType = BodyType.Xml, 
-    DefaultResponseType = ResponseType.Xml)]
+[HttpService("http://restapi.adequateshop.com/api/", DefaultFormat = ResultFormat.Xml)]
 public interface ITravellerApi
 {
     ITravellerActions Traveler { get; }
 }
 
-public interface ITravellerActions :
-    // queryParamName: status
-    IGet<PetStatus, TravelerInformationResponse>
+public partial interface ITravellerActions : IHttpGet<(PetStatus status, TravelerInformationResponse)>
 {
-    ITravelerActionsById this[int id] { get; }
-}
-public interface ITravelerActionsById: IGet<TravelerInformation>
-{
+    [ServiceDescription("TravelerById")]
+    IHttpGet<Result<TravelerInformation>> this[int id] { get; }
 }

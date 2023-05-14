@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Text;
 using System.Collections;
 
@@ -16,49 +17,10 @@ public sealed class QueryBuilder : IEnumerable
         };
     }
 
-    public static QueryBuilder<T> With<T>(T obj)
+    public QueryBuilder Add(string key, object? value)
     {
-        QueryBuilder<T> result = new(obj);
-        return result;
-    }
-
-    public QueryBuilder Add(string key, string value)
-    {
-        _query.Append($"{(_query.Length > 0 ? "&" : "?")}{key}={value}");
-        return this;
-    }
-
-    public override string ToString()
-    {
-        return _query.ToString();
-    }
-
-    public IEnumerator GetEnumerator()
-    {
-        return _query.ToString().GetEnumerator();
-    }
-}
-
-public sealed class QueryBuilder<T> : IEnumerable
-{
-    private readonly T _obj;
-    private readonly StringBuilder _query = new();
-
-    internal QueryBuilder(T obj)
-    {
-        _obj = obj;
-    }
-
-    public QueryBuilder<T> Add(string key, string value)
-    {
-        _query.Append($"{(_query.Length > 0 ? "&" : "?")}{key}={value}");
-        return this;
-    }
-
-    public QueryBuilder<T> Add<TIn>(string key, Func<T, TIn> valueGetter)
-    {
-        if (valueGetter(_obj) is { } val)
-            _query.Append($"{(_query.Length > 0 ? "&" : "?")}{key}={val}");
+        if (value != null)
+            _query.Append($"{(_query.Length > 0 ? "&" : "?")}{key}={Uri.EscapeDataString(value?.ToString())}");
         return this;
     }
 

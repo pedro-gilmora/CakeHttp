@@ -1,5 +1,4 @@
-﻿
-using HttpServiceClient.UnitTests.Models.Json;
+﻿namespace HttpServiceClient.UnitTests.Models.Json;
 
 public class Pet
 {

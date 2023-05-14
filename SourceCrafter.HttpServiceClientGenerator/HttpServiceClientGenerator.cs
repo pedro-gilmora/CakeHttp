@@ -13,15 +13,19 @@ using SourceCrafter.HttpServiceClient.Internals;
 using SourceCrafter.HttpServiceClient.Enums;
 using SourceCrafter.HttpServiceClient.Attributes;
 using SourceCrafter.HttpServiceClient;
+using System.IO;
+using System.Reflection;
+
+[assembly: InternalsVisibleTo("SourceCrafter.HttpServiceClientGenerator.UnitTests")]
 
 namespace SourceCrafter;
 
 [Generator]
-public class HttpServiceClientGenerator : IIncrementalGenerator
+internal class HttpServiceClientGenerator : IIncrementalGenerator
 {
-    private readonly static object _lock = new();
     private static readonly DiagnosticDescriptor PropertyDiagnosis = new("SG001", "Interface {0} has not defined properties for posible nested services", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
     private static readonly DiagnosticDescriptor MethodDiagnosis = new("SG002", "Interface {0} has not defined method to implement", "", "Service Source Generator", DiagnosticSeverity.Warning, true);
+    private readonly static object _lock = new();
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         lock (_lock)
@@ -35,7 +39,7 @@ public class HttpServiceClientGenerator : IIncrementalGenerator
 
             context.RegisterSourceOutput(
                 interfaceDeclarations,
-                static (sourceProducer, gen) => CreateRelatedTypeFiles(sourceProducer, gen.semanticModel, gen.Attr, gen.type, true)
+                static (sourceProducer, gen) => CreateRelatedTypeFiles(sourceProducer, gen.semanticModel, gen.Attr, gen.type)
             );
         }
     }
@@ -47,68 +51,79 @@ public class HttpServiceClientGenerator : IIncrementalGenerator
                 usings.Add(ns);
     }
 
-    private static void CreateRelatedTypeFiles(SourceProductionContext productionContext, SemanticModel semanticModel, AttributeData attr, ITypeSymbol typeSymbol, bool root = false)
+    private static void CreateRelatedTypeFiles(SourceProductionContext productionContext, SemanticModel semanticModel, AttributeData attr, ITypeSymbol typeSymbol)
     {
         string
             interfaceName = typeSymbol.Name,
             name = interfaceName[1..].Replace("Api", ""),
             clientName = $"{name}Client",
             agentName = $"{name}Agent";
+        
+        AgentOptions agentOptions = new(attr, typeSymbol.ContainingNamespace.ToDisplayString(), agentName);
+        
         try
         {
 
-            Dictionary<string, string> fileAndContent = new();
+            HashSet<string> fileNames = new();
 
-            BuilderOptions builderOptions = new(attr, agentName);
+            var ctor = $@"public {clientName}(){{
+            _agent = new();
+            _path = ""{agentOptions.BaseUrlAbsolutePath}"";            
+        }}";
 
-            CollectAndBuildRelatedTypes(
-                fileAndContent,
+            CreateType(
+                agentOptions,
                 semanticModel,
+                $"{agentOptions.AgentNamespace}.{clientName}.http.cs".TrimStart('.'),
+                fileNames,
                 typeSymbol,
                 clientName,
                 interfaceName,
-                builderOptions,
-                root);
+                ctor,
+                Array.Empty<PathSegment>(),
+                productionContext.AddSource);
 
-            var agentClass = $@"{(builderOptions.NeedsJsonOptions ? $@"using System.Text.Json;
-using System.Text.Json.Serialization;" : "")}
-using SourceCrafter.HttpServiceClient;
-using SourceCrafter.HttpServiceClient.Policy;
-using SourceCrafter.HttpServiceClient.Enums;
-using SourceCrafter.HttpServiceClient.Converters;
-using System.Net.Http;
-using System.Threading.Tasks;
-
-namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
+            var agentClass = $@"namespace {agentOptions.AgentNamespace}
 {{
-    internal sealed class {builderOptions.AgentTypeName} 
+    internal sealed class {agentOptions.AgentTypeName} 
     {{
-        internal Dictionary<string, object> DefaultQueryValues = new();
-        internal System.Func<HttpRequestMessage, Task> DefaultBeforeSend = _ => Task.CompletedTask;
-        internal System.Func<HttpResponseMessage, Task> DefaultAfterSend = _ => Task.CompletedTask;
-        internal HttpClient _httpClient;{(builderOptions.NeedsJsonOptions ? @"
-        internal JsonSerializerOptions _jsonOptions;" : "")}
+        internal System.Collections.Generic.Dictionary<string, object> DefaultQueryValues = new();
+        internal System.Func<System.Net.Http.HttpRequestMessage, System.Threading.Tasks.Task>? DefaultRequestHandler;
+        internal System.Func<System.Net.Http.HttpResponseMessage, System.Threading.Tasks.Task>? DefaultResponseHandler;
+        internal System.Net.Http.HttpClient _httpClient;";
 
-        internal {builderOptions.AgentTypeName}()
+            if (agentOptions.NeedsJsonOptions)
+                agentClass += @"
+        internal System.Text.Json.JsonSerializerOptions _jsonOptions;";
+
+            agentClass += $@"
+        internal {agentOptions.AgentTypeName}()
         {{
-            _httpClient = new HttpClient {{ 
-                BaseAddress = new Uri(""{builderOptions.BaseUrl.AbsoluteUri.Replace(builderOptions.BaseUrl.PathAndQuery, "")}"")
-            }};{(builderOptions.NeedsJsonOptions ? $@"
-            _jsonOptions = new JsonSerializerOptions {{                
-                ReferenceHandler = ReferenceHandler.IgnoreCycles{GenerateCaseConverter(builderOptions, "PropertyNamingPolicy", @",
-                ")}                
+            _httpClient = new () {{ 
+                BaseAddress = new System.Uri(""{agentOptions.BaseUrl.AbsoluteUri.Replace(agentOptions.BaseUrl.PathAndQuery, "")}"")
+            }};{(agentOptions.NeedsJsonOptions ? $@"
+            _jsonOptions = new System.Text.Json.JsonSerializerOptions {{                
+                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles{GenerateCaseConverter(agentOptions, "PropertyNamingPolicy")}                
             }};
-            _jsonOptions.Converters.Insert(0, new EnumJsonConverter(Casing.{builderOptions.EnumSerializationCasing}));" : ";")}
-        }}{builderOptions.HelperMethods.Values.Join(@"
+            _jsonOptions.Converters.Insert(0, new SourceCrafter.HttpServiceClient.Converters.EnumJsonConverter(SourceCrafter.HttpServiceClient.Enums.Casing.{agentOptions.EnumSerializationCasing}));" : ";")}
+        }}{agentOptions.HelperMethods.Values.Join(@"
                 
         ")}
 
-        internal Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancelToken) {{
-            return _httpClient.SendAsync(request, cancelToken);
+        internal async Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancelToken) {{
+            if (DefaultRequestHandler != null)
+                await DefaultRequestHandler(request);
+
+            var response = await _httpClient.SendAsync(request, cancelToken);
+
+            if (DefaultResponseHandler != null)
+                await DefaultResponseHandler(response);
+
+            return response;
         }}
 
         internal string GetUrl(string baseUrl) {{
-            var append = DefaultQueryValues.Select(kv => kv.Key + ""="" + kv.Value?.ToString()).Join(""&"");
+            var append = string.Join(""&"", DefaultQueryValues.Select(kv => kv.Key + ""="" + System.Uri.EscapeDataString($""{{kv.Value}}"")));
             if(!baseUrl.Contains(""?"") && append.Length > 0)
                 baseUrl += ""?"";
             return baseUrl + append;
@@ -117,165 +132,223 @@ namespace {typeSymbol.ContainingNamespace.ToDisplayString()}
 }}";
 
 
-            productionContext.AddSource($"{clientName}.{agentName}.g.cs", $@"//<auto generated>
+            productionContext.AddSource($"{agentOptions.AgentFullTypeName}.http.cs", $@"//<auto generated>
 {agentClass}");
-
-            foreach (var kv in fileAndContent)
-            {
-                var code = $@"//<auto generated>
-using static SourceCrafter.HttpServiceClient.HttpHelpers;
-{kv.Value}";
-                productionContext.AddSource($"{clientName}.{kv.Key}.g.cs", code);
-            }
         }
         catch (Exception e)
         {
-            productionContext.AddSource($"{clientName}.{agentName}.g.cs", $"/*{e}*/");
+            productionContext.AddSource($"{agentOptions.AgentFullTypeName}.http.cs", $"/*{e}*/");
         }
 
     }
 
-    private static string GenerateCaseConverter(BuilderOptions builderOptions, string prop, string separatorTrivia, string? fallBackConverter = "value => value")
+    internal static string GenerateCaseConverter(AgentOptions agentOptions, string prop, string? fallBackConverter = "value => value")
     {
-        return builderOptions.PropertyCasing != Casing.None
-                            ? $"{separatorTrivia}{prop} = CasingPolicy.Create(Casing.{builderOptions.PropertyCasing})"
+        return agentOptions.PropertyCasing != Casing.None
+                            ? $@",
+                {prop} = SourceCrafter.HttpServiceClient.Policies.CasingPolicy.Create(SourceCrafter.HttpServiceClient.Enums.Casing.{agentOptions.PropertyCasing})"
                             : fallBackConverter != null
-                                ? $"{separatorTrivia}{prop} = {fallBackConverter}"
+                                ? $@",
+                {prop} = {fallBackConverter}"
                                 : "";
     }
 
-    private static void CollectAndBuildRelatedTypes(Dictionary<string, string> fileAndContent, SemanticModel semanticModel, ITypeSymbol typeSymbol, string typeName, string interfaceName, BuilderOptions builderOptions, bool root)
+    internal static void CreateType(
+        AgentOptions agentOptions,
+        SemanticModel semanticModel,
+        string fileName,
+        HashSet<string> fileNames,
+        ITypeSymbol typeSymbol,
+        string typeName,
+        string underlyingInterface,
+        string ctor,
+        IEnumerable<PathSegment> dynamicalSegments,
+        Action<string, string> createFile)
     {
-        var absolutePath = builderOptions.BaseUrl.AbsolutePath;
-
-        if (absolutePath.EndsWith("/"))
-            absolutePath = absolutePath[..^1];
-
-        var ctor = $@"public {typeName}(){{
-            _agent = new();
-            _path = ""{absolutePath}"";            
-        }}";
-
-        fileAndContent[typeName] = CreateType(builderOptions, semanticModel, fileAndContent, typeSymbol, typeName, interfaceName, ctor, root);
-
-    }
-
-    private static string CreateType(BuilderOptions builderOptions, SemanticModel semanticModel, Dictionary<string, string> fileContent, ITypeSymbol typeSymbol, string typeName, string underlyingInterface, string ctor, bool root = false)
-    {
-            var containingNameSpace = typeSymbol.ContainingNamespace.ToDisplayString();
-            var usings = new HashSet<string>() { };
-
-            try
-            {
+        var containingNameSpace = typeSymbol.ContainingNamespace.ToDisplayString();
+        HashSet<string> usings = new();
+        try
+        {
             var classType = $@"namespace {containingNameSpace}
 {{
     public sealed partial class {typeName} : {underlyingInterface} 
     {{
-        private readonly {builderOptions.AgentTypeName} _agent;
-        private readonly string _path;";
-
-            if (root)
-                classType += $@"        
-        internal Dictionary<string, object> DefaultQueryValues {{ 
-            get => _agent.DefaultQueryValues; 
-            set => _agent.DefaultQueryValues = value; 
-        }}
-        internal System.Func<HttpRequestMessage, Task> DefaultBeforeSend {{ 
-            get => _agent.DefaultBeforeSend; 
-            set => _agent.DefaultBeforeSend = value; 
-        }}
-        internal System.Func<HttpResponseMessage, Task> DefaultAfterSend {{ 
-            get => _agent.DefaultAfterSend; 
-            set => _agent.DefaultAfterSend = value; 
-        }}";
+        private readonly {agentOptions.AgentFullTypeName} _agent;
+        private readonly string _path;
+        internal System.Collections.Generic.Dictionary<string, object> DefaultQueryValues => _agent.DefaultQueryValues;
+        internal System.Net.Http.Headers.HttpRequestHeaders DefaultRequestHeaders => _agent._httpClient.DefaultRequestHeaders;";
 
             classType += $@"        
-        {ctor}{GetMembers().Join()}
+        {ctor}{GetMembers(dynamicalSegments).Join()}
     }}
 }}";
-                return $@"{usings.Union(new[] { "SourceCrafter.HttpServiceClient" }).Except(new[] { containingNameSpace }).Join(u => $"using {u};", @"
+            createFile(fileName, $@"{usings
+                .Append("static SourceCrafter.HttpServiceClient.HttpHelpers")
+                .Except(new[] { containingNameSpace })
+                .Join(u => $"using {u};", @"
 ")}
 
-{classType}";
-            }
-            catch (Exception e)
-            {
-                return $"/*{e}*/";
-            }
-
-            IEnumerable<string> GetMembers()
-            {
-                //int propsCount = 0, methodsCount = -1;
-
-                if (typeSymbol.GetMembers().OfType<IPropertySymbol>() is { } props)
-                    foreach (var prop in props)
-                        yield return BuildPropertyAndTypes(
-                            builderOptions, 
-                            semanticModel, 
-                            fileContent, 
-                            prop.Name,
-                            prop.GetAttributes()
-                                .FirstOrDefault(FindSegmentAttr) is { ConstructorArguments: [{ Value: string value }] }
-                                    ? value
-                                    : null, 
-                            prop.Type, 
-                            prop.IsIndexer, 
-                            prop.Parameters, 
-                            GetType(usings, prop.Type), 
-                            usings);
-
-
-                if (BuildMethods(typeSymbol, semanticModel, builderOptions, usings).ToImmutableArray() is { Length: > 0 } methods)
-                    foreach (var methodStr in methods)
-                        yield return methodStr;
-            }
-
+{classType}");
+        }
+        catch (Exception e)
+        {
+            createFile(fileName, $"/*{e}*/");
         }
 
-    private static string BuildPropertyAndTypes(BuilderOptions builderOptions, SemanticModel semanticModel, Dictionary<string, string> fileContent, string propName, string? segment, ITypeSymbol type, bool isIndexer, ImmutableArray<IParameterSymbol> parameters, string interfaceName, HashSet<string> usings)
+        IEnumerable<string> GetMembers(IEnumerable<PathSegment> parentIndexersParams)
+        {
+            //int propsCount = 0, methodsCount = -1;
+
+            if (typeSymbol.GetMembers().OfType<IPropertySymbol>().ToImmutableArray() is { } props)
+                foreach (var prop in props)
+                    yield return BuildPropertyAndTypes(
+                        agentOptions,
+                        semanticModel,
+                        fileNames,
+                        prop.Name,
+                        prop.GetAttributes()
+                            .FirstOrDefault(FindSegmentAttr) is { ConstructorArguments: [{ Value: string value }] }
+                                ? value
+                                : null,
+                        prop.Type,
+                        prop.IsIndexer,
+                        parentIndexersParams,
+                        prop.Parameters,
+                        GetSimpleTypeName(prop.Type),
+                        createFile);
+
+            if (BuildMethods(typeSymbol, semanticModel, agentOptions, usings).ToImmutableArray() is { Length: > 0 } methods)
+                foreach (var methodStr in methods)
+                    yield return methodStr;
+        }
+
+    }
+
+    private static string BuildPropertyAndTypes(
+        AgentOptions agentOptions,
+        SemanticModel semanticModel,
+        HashSet<string> fileNames,
+        string propName,
+        string? segment,
+        ITypeSymbol type,
+        bool isIndexer,
+        IEnumerable<PathSegment> segments,
+        ImmutableArray<IParameterSymbol> parameters,
+        string interfaceName,
+        Action<string, string> createFile)
     {
         string
+            nameSpace= type.ContainingNamespace.ToString().Replace("<global namespace>",""),
             serviceName = $"{interfaceName[1..]}Service",
+            fullName = (nameSpace + "." + serviceName).TrimStart('.'),
             implField = $"_{char.ToLower(serviceName[0]) + serviceName[1..]}";
-        var ctor = $@"internal {serviceName}({builderOptions.AgentTypeName} agent, string path)
+
+        var ctor = $@"internal {serviceName}({agentOptions.AgentFullTypeName} agent, string path)
         {{
-            _agent = agent;
-            _path = path;            
+            _agent = agent;            
+            _path = path;        
         }}";
 
-        if (!fileContent.ContainsKey(serviceName))
-            fileContent[serviceName] = CreateType(builderOptions, semanticModel, fileContent, type, serviceName, interfaceName, ctor, true);
 
-        return isIndexer
-            ? $@"
+        if (isIndexer)
+        {
+            GetPropertyParameters(out var absolutePath, out var allParamsDef, out var implicitCtorSegments, out var implicitParamsDef);
+            
+            ctor += $@"
+        public {serviceName}({allParamsDef})
+        {{
+            _agent = new();
+            _path = $""{agentOptions.BaseUrlAbsolute}{absolutePath}"";
+        }}";
 
-        public {interfaceName} this[{GetPropertyParameters(out var paramsSegments)}] => new {serviceName}(_agent, $""{{_path}}{paramsSegments}"");"
-            : $@"
+            if (fileNames.Add(serviceName))
+                CreateType(
+                    agentOptions,
+                    semanticModel,
+                    fullName + ".http.cs",
+                    fileNames,
+                    type,
+                    serviceName,
+                    interfaceName,
+                    ctor,
+                    segments,
+                    createFile);
+
+            return $@"
+
+        public {interfaceName} this[{implicitParamsDef}] => 
+            new {fullName}(_agent, $""{{_path}}{implicitCtorSegments}"");";
+        
+        }
+        else
+        {
+            PathSegment element = new(segment ?? agentOptions.PathCasingFn(propName)!);
+
+            segments = segments.Append(element).ToArray();
+
+            if (fileNames.Add(serviceName))
+                CreateType(
+                    agentOptions,
+                    semanticModel,
+                    fullName + ".http.cs",
+                    fileNames,
+                    type,
+                    serviceName,
+                    interfaceName,
+                    ctor,
+                    segments,
+                    createFile);
+
+            return $@"
 
         private {interfaceName} {implField} = null!;
-        public {interfaceName} {propName} => {implField} ??= new {serviceName}(_agent, $""{{_path}}/{segment ?? builderOptions.PathCasingFn(propName)}"");";
 
-        string GetPropertyParameters(out string pathSegments)
+        public {interfaceName} {propName} => 
+            {implField} ??= new {fullName}(_agent, $""{{_path}}/{element.Value}"");";
+        }
+
+        void GetPropertyParameters(out string absolutePath, out string absoluteDynamicParams, out string contextPathSegments, out string contextParamsDefinition)
         {
             string? comma = null;
-            var paramsDefinition = "";
-            pathSegments = "";
+            absolutePath = absoluteDynamicParams = contextParamsDefinition = contextPathSegments = "";
+            foreach (var segment in segments)
+            {
+                if (segment.Name != null)
+                {
+                    absoluteDynamicParams += $"{comma}{segment}";
+                    comma ??= ", ";
+                }
+                absolutePath += segment.Value;
+
+            }
+
+            List<PathSegment> newSegments = new();
 
             foreach (var ip in parameters)
             {
                 var paramName = ip.Name;
-                paramsDefinition += $"{comma}{GetType(usings, ip.Type)} {ip.Name}";
-                pathSegments += $@"/{{{GetFormatterExpression(paramName, IsNullable(ip.Type), ip.Type, builderOptions.PathCasing)}}}";
+
+                PathSegment pathSegment = new($"/{{{paramName}}}", ip.Name, GetType(ip.Type));
+
+                newSegments.Add(pathSegment);
+
+                absolutePath += pathSegment.Value;
+                contextPathSegments += pathSegment.Value;
+
+                var append = $"{comma}{pathSegment}";
+
+                contextParamsDefinition += append;
+                absoluteDynamicParams += append;
                 comma ??= ", ";
             }
 
-            return paramsDefinition;
+            segments = segments.Concat(newSegments).ToArray();
         }
     }
 
     private static bool FindSegmentAttr(AttributeData a) => a.AttributeClass is INamedTypeSymbol { Name: nameof(SegmentAttribute) };
 
-    private static IEnumerable<string> BuildMethods(ITypeSymbol cls, SemanticModel semanticModel, BuilderOptions builderOptions, HashSet<string> usings)
+    private static IEnumerable<string> BuildMethods(ITypeSymbol cls, SemanticModel semanticModel, AgentOptions agentOptions, HashSet<string> usings)
     {
         List<string> methods = new();
 
@@ -283,7 +356,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
         {
             if (sr.GetSyntax() is not InterfaceDeclarationSyntax { BaseList: { ColonToken.SpanStart: var startPoint, Types: var baseTypes } baseList } iFace)
                 return;
-            
+
             Queue<SyntaxTrivia> comments = new(iFace.DescendantTrivia(baseList.FullSpan).Where(c => c.IsKind(SyntaxKind.SingleLineCommentTrivia)));
 
             ForEach(baseTypes.ToImmutableArray().AsSpan(), baseTypeDecl =>
@@ -293,7 +366,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
                 var paramType = (INamedTypeSymbol)semanticModel.GetTypeInfo(type).Type!;
 
-                OperationDescriptor opDescriptor = new(builderOptions);
+                OperationDescriptor opDescriptor = new(agentOptions);
 
                 for (var i = 0; i < argsCount; i++)
 
@@ -306,7 +379,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
                             opDescriptor.QueryType = (INamedTypeSymbol)paramType.TypeArguments[i];
                             break;
                         case { Name: "TContent" } param:
-                            opDescriptor.ContentType = (INamedTypeSymbol)paramType.TypeArguments[i];
+                            opDescriptor.BodyType = (INamedTypeSymbol)paramType.TypeArguments[i];
                             break;
                     }
 
@@ -316,14 +389,14 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
                 startPoint = type.Span.End;
 
-                if (opDescriptor is { ContentFormatType: "Json" } or { ResponseFormatType: "Json" })
-                    builderOptions.NeedsJsonOptions |= true;
+                if (opDescriptor is { BodyFormatType: "Json" } or { ResponseFormatType: "Json" })
+                    agentOptions.NeedsJsonOptions |= true;
 
-                if (opDescriptor.ContentFormatType is "Json" or "Xml")
-                    usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
+                if (opDescriptor.BodyFormatType is "Json" or "Xml")
+                    usings.Add($"System.Net.Http.{opDescriptor.BodyFormatType}");
 
                 if (opDescriptor.ResponseFormatType is "Json" or "Xml")
-                    usings.Add($"System.Net.Http.{opDescriptor.ContentFormatType}");
+                    usings.Add($"System.Net.Http.{opDescriptor.BodyFormatType}");
 
 
                 foreach (var method in paramType.GetMembers().OfType<IMethodSymbol>())
@@ -333,7 +406,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
                         methods.Add(
                             GenerateMethod(
                                 usings,
-                                builderOptions,
+                                agentOptions,
                                 method,
                                 opDescriptor));
                     }
@@ -346,47 +419,38 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
     private static void GetComment(Queue<SyntaxTrivia> comments, int startPoint, int endPoint, OperationDescriptor desc)
     {
-        var comm = comments.FirstOrDefault();
+        if (comments.Count == 0) return;
+        var comm = comments.Peek();
 
         if (!TextSpan.FromBounds(startPoint, endPoint).Contains(comm.FullSpan))
             return;
 
-        ForEach<string[]>(GetMetadata(comm).AsSpan(), parts =>
-        {
-            var ( key,  value) = (parts[0].Trim(), parts[1].Trim());
-            switch (key)
-            {
-                case "contentType":
-                    desc.ContentFormatType = value;
-                    break;
-                case "responseType":
-                    desc.ResponseFormatType = value;
-                    break;
-                case "queryParamName":
-                    desc.QueryParameterName = value;
-                    break;
-                case "contentParamName":
-                    desc.ContentParameterName = value;
-                    break;
-                default:
-                    desc.Headers.Add((key, value));
-                    break;
-            }
-        });
+        foreach (var tuple in DeserializeComment(comm))
+            if (tuple.IndexOf(':') is var index and > 0)
+                switch (tuple[..index])
+                {
+                    case "contentType":
+                        desc.BodyFormatType = tuple[(index + 1)..];
+                        break;
+                    case "responseType":
+                        desc.ResponseFormatType = tuple[(index + 1)..];
+                        break;
+                    case "queryParamName":
+                        desc.QueryParamName = tuple[(index + 1)..];
+                        break;
+                    case "contentParamName":
+                        desc.BodyParamName = tuple[(index + 1)..];
+                        break;
+                    case { } key:
+                        desc.Headers.Add((key, tuple[(index + 1)..]));
+                        break;
+                }
 
         comments.Dequeue();
-
-        static string[][] GetMetadata(SyntaxTrivia comm)
-        {
-            return comm
-                .ToString()
-                .Trim('*', '/', '\n', '\n', '\t', ' ')
-                .Split(',')
-                .Where(x => x.Trim() is not { Length: 0 })
-                .Select(x => x.Split(':'))
-                .ToArray();
-        }
     }
+
+    private static Span<string> DeserializeComment(SyntaxTrivia comm) => 
+        comm.ToString().Trim('*', '/', '\n', '\r', '\t', ' ').Split(',').AsSpan();
 
     private static void ForEach<T>(ReadOnlySpan<T> data, Action<T> action)
     {
@@ -399,7 +463,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
     private const string DefaultCancelToken = "default";
 
-    private static string GenerateMethod(HashSet<string> usings, BuilderOptions builderOptions, IMethodSymbol method, OperationDescriptor contentDesc)
+    private static string GenerateMethod(HashSet<string> usings, AgentOptions agentOptions, IMethodSymbol method, OperationDescriptor contentDesc)
     {
         string name = method.Name,
             methodType = name[..^5],
@@ -418,14 +482,14 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
             if (contentDesc is not { ResponseType: { } returnType, ResponseFormatType: var returnFormatType })
                 return responseHandler = returnTypeName = null;
 
-            var options = returnFormatType == "Json" ? "_agent._jsonOptions" : "";
+            var options = returnFormatType == "Json" ? $"_agent._jsonOptions" : "";
 
             responseHandler = $@"
 
             return response switch 
             {{
                 {{ IsSuccessStatusCode: true, Content: {{}} responseContent }} => 
-                    await responseContent.ReadFrom{returnFormatType}Async<{returnTypeName = GetType(usings, returnType)}>({Concat(options, cancelToken)}),
+                    await responseContent.ReadFrom{returnFormatType}Async<{returnTypeName = GetType(returnType)}>({Concat(options, cancelToken)}),
 
                 {{ IsSuccessStatusCode: false }} => 
                     throw response.RequestException(),
@@ -436,32 +500,33 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
         }
 
-        string BuildParameters(out string? queryReference, out string? contentRefernce)
+        string BuildParameters(out string? queryReference, out string? contentBuilderSyntax)
         {
-            contentRefernce = queryReference = null;
+            contentBuilderSyntax = queryReference = null;
             var paramSkip = 0;
             var parametersSyntax = "";
 
-            if (contentDesc is { QueryType: { } queryType, QueryParameterName: { } queryParameterName })
+            if (contentDesc is { QueryType: { } queryType, QueryParamName: { } queryParameterName })
             {
                 paramSkip++;
 
-                var queryTypeName = GetType(usings, queryType);
+                var queryTypeName = GetType(queryType);
 
-                parametersSyntax += $@"{queryTypeName} {queryParameterName}";
+                parametersSyntax += $@"
+                {queryTypeName} {queryParameterName}";
                 queryReference = BuildQueryParams(queryTypeName, out pathVar);
             }
 
-            if (contentDesc is { ContentFormatType: { } contentDocType, ContentParameterName: { } contentParamName, ContentType: INamedTypeSymbol contentType })
+            if (contentDesc is { BodyFormatType: { } contentDocType, BodyParamName: { } contentParamName, BodyType: INamedTypeSymbol contentType })
             {
                 paramSkip++;
 
                 if (paramSkip > 1)
-                    parametersSyntax += ", ";
+                    parametersSyntax += ",";
 
                 var contentHeaders = "";
 
-                var contentTypeName = GetType(usings, contentType);
+                var contentTypeName = GetType(contentType);
 
                 var isFile = contentTypeName.Contains("FileInfo");
 
@@ -470,38 +535,45 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
                 var content = contentDocType switch
                 {
-                    "MultipartFormData" => $"{nameof(HttpHelpers.ArrayFrom)}({BuildMultipartItems(usings, builderOptions, contentType, isFile, contentHeaders, contentParamName)})",
+                    "MultipartFormData" => $"new[] {{ {BuildMultipartItems(usings, agentOptions, contentType, isFile, contentHeaders, contentParamName)} }}",
 
-                    "FormUrlEncoded" => $@"new Dictionary<string, string> {{
-                    {BuildFormUrlEncodedItems(usings, builderOptions, contentType, contentHeaders)}
+                    "FormUrlEncoded" => $@"new System.Collections.Generic.Dictionary<string, string> {{
+                    {BuildFormUrlEncodedItems(usings, agentOptions, contentType, contentHeaders)}
                 }}",
 
                     _ => contentParamName
                 };
 
-                parametersSyntax += $@"{contentTypeName} {contentParamName}";
+                parametersSyntax += $@"
+            {contentTypeName} {contentParamName}";
 
-                contentRefernce = $@" {{
-                Content = HttpHelpers.Create{contentDocType}({content}{(contentDocType == "Json" ? ", _agent._jsonOptions" : "")})
-            }}";
+                contentBuilderSyntax = $@" {{
+                Content = {content}.Create{contentDocType}(";
+
+                if (contentDocType == "Json")
+                    contentBuilderSyntax += "_agent._jsonOptions";
+
+                contentBuilderSyntax += @")
+            }";
             }
 
             foreach (var param in method.Parameters.Skip(paramSkip))
             {
                 if (paramSkip++ > 0)
-                    parametersSyntax += ", ";
+                    parametersSyntax += ",";
 
                 string
-                    paramType = GetType(usings, param.Type),
+                    paramType = GetType(param.Type),
                     paramName = param.Name;
 
                 if (cancelToken == DefaultCancelToken && paramType == "CancellationToken")
                     cancelToken = paramName;
 
-                parametersSyntax += $"{paramType} {paramName}";
+                parametersSyntax += $@"
+            {paramType} {paramName}";
 
                 if (param.HasExplicitDefaultValue)
-                    parametersSyntax += $" = {param.ExplicitDefaultValue ?? builderOptions.SegmentFallback ?? "default"}";
+                    parametersSyntax += $" = {param.ExplicitDefaultValue ?? agentOptions.SegmentFallback ?? "default"}";
             }
             return parametersSyntax;
         }
@@ -509,13 +581,17 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
         string BuildRequestSubmission()
         {
 
-            return $@"{queryReference}var request = new HttpRequestMessage(HttpMethod.{methodType}, new Uri(_agent.GetUrl({pathVar}), UriKind.Relative)){contentRefernce};
+            return $@"{queryReference}var request = new System.Net.Http.HttpRequestMessage(
+                System.Net.Http.HttpMethod.{methodType},
+                new System.Uri(_agent.GetUrl({pathVar}), System.UriKind.Relative)){contentRefernce};
 
-            await (_agent.DefaultBeforeSend + beforeSend)(request);
+            if(handleRequest != null)
+                await handleRequest(request);
 
             var response = await _agent.SendAsync(request, {cancelToken});
             
-            await (_agent.DefaultAfterSend + afterSend)(response);";
+            if(handleResponse != null)
+                await handleResponse(response);";
 
         }
 
@@ -523,7 +599,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
         {
             pathVar = "_path";
 
-            if (contentDesc is { QueryType: { } queryType, QueryParameterName: { } queryParameterName })
+            if (contentDesc is { QueryType: { } queryType, QueryParamName: { } queryParameterName })
             {
                 var requestSyntax = "";
 
@@ -533,10 +609,9 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
                 if (queryType is { IsValueType: true, IsTupleType: false })
                 {
                     string
-                        paramName = builderOptions.QueryPropCasingFn(queryParameterName),
-                        paramValue = GetFormatterExpression(queryParameterName, IsNullable(queryType), queryType, builderOptions.EnumQueryCasing);
+                        paramName = agentOptions.QueryPropCasingFn(queryParameterName)!;
 
-                    requestSyntax += $@"?{paramName}={{{paramValue}}}";
+                    requestSyntax += $@"?{paramName}={{{queryParameterName}}}";
                 }
                 else
                 {
@@ -544,8 +619,8 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
                     var signature = $@"string BuildQuery({queryTypeName} query)";
 
-                    if(!builderOptions.HelperMethods.ContainsKey(signature))
-                        RegisterQueryBuilder(queryTypeName, queryType, signature);
+                    if (!agentOptions.HelperMethods.ContainsKey(signature))
+                        RegisterQueryBuilder(queryType, signature);
                 }
                 requestSyntax += @""";
             ";
@@ -556,39 +631,59 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
             return "";
         }
 
-        string RegisterQueryBuilder(string queryTypeName, INamedTypeSymbol queryType, string signature)
+        string RegisterQueryBuilder(ITypeSymbol queryType, string signature)
         {
-            return builderOptions.HelperMethods[signature] = $@"
+            return agentOptions.HelperMethods[signature] = $@"
 
         internal {signature}
         {{
-            {BuildQueryBuilderBody(builderOptions, queryType)}
+            {BuildQueryBuilderBody(agentOptions, queryType)}
         }}";
         }
     }
 
-    private static string GetFormatterExpression(string value, bool isNullable, ITypeSymbol type, Casing propCasing, bool insideInterpolation = true)
+    //private static string GetFormatterExpression(string value, ITypeSymbol type, Casing propCasing, bool insideInterpolation = true)
+    //{
+    //    if (insideInterpolation && (propCasing == Casing.None))
+    //        return value;
+    //    if (IsNullable(type))
+    //        value += '?';
+    //    var isEnum = type is INamedTypeSymbol { EnumUnderlyingType: { } };
+    //    var isNumberBased = IsNumberBased(type);
+    //    if (!isEnum && !isNumberBased && !insideInterpolation && type.SpecialType is not (SpecialType.System_String or SpecialType.System_Object))
+    //        value += ".ToString()";
+
+    //    if (!isNumberBased && propCasing != Casing.None)
+    //        value += propCasing switch
+    //        {
+    //            Casing.Digit when isEnum => @".ToString(""D"")",
+    //            Casing.CamelCase => $".{nameof(HttpHelpers.ToCamel)}()",
+    //            Casing.PascalCase => $".{nameof(HttpHelpers.ToPascal)}()",
+    //            Casing.LowerCase => $".ToLower()",
+    //            Casing.UpperCase => $".ToUpper()",
+    //            Casing.LowerSnakeCase => $".{nameof(HttpHelpers.ToSnakeLower)}()",
+    //            Casing.UpperSnakeCase => $".{nameof(HttpHelpers.ToSnakeUpper)}()",
+    //            _ => ""
+    //        };
+        
+    //    return value;
+
+    //}
+
+    private static bool IsNumberBased(ITypeSymbol type)
     {
-        var nullChar = isNullable ? "?" : "";
-        return value + (type switch
-        {
-            INamedTypeSymbol { EnumUnderlyingType: { } } => propCasing switch
-            {
-                Casing.Digit => $@"{nullChar}.ToString(""D"")",
-                Casing.CamelCase => $"{nullChar}.ToCamelCase()",
-                Casing.PascalCase => $"{nullChar}.ToPascalCase()",
-                Casing.LowerCase => $"{nullChar}.ToLower()",
-                Casing.UpperCase => $"{nullChar}.ToUpper()",
-                Casing.LowerSnakeCase => $"{nullChar}.ToLowerSnakeCase()",
-                Casing.UpperSnakeCase => $"{nullChar}.ToUpperSnakeCase()",
-                _ => insideInterpolation ? "" : $"{nullChar}.ToString()"
-            },
-            { SpecialType: not SpecialType.System_String } => insideInterpolation ? "" : $"{nullChar}.ToString()",
-            _ => "",
-        });
+        return type.SpecialType is SpecialType.System_Int16 or 
+            SpecialType.System_Int32 or 
+            SpecialType.System_Int64 or 
+            SpecialType.System_UInt16 or 
+            SpecialType.System_UInt32 or 
+            SpecialType.System_UInt64 or 
+            SpecialType.System_Decimal or 
+            SpecialType.System_Single or 
+            SpecialType.System_Double;
     }
 
-    private static string BuildQueryBuilderBody(BuilderOptions builderOptions, INamedTypeSymbol queryType)
+    private static string BuildQueryBuilderBody(AgentOptions agentOptions, ITypeSymbol queryType)
     {
         var isNullableParam = IsNullable(queryType);
         var items = GetQueryProperties(queryType);
@@ -600,15 +695,15 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
         int indent = isNullableParam ? 4 : 3, itemsLen = items.Length;
 
-        foreach (var( i,  memberName,  type, isNullable) in items)
+        foreach (var (i, memberName, type, isNullable) in items)
         {
             string
-                queryParamName = builderOptions.QueryPropCasingFn(memberName),
-                queryParamValue = GetFormatterExpression($"query.{memberName}", isNullable, type, builderOptions.EnumQueryCasing, false);
+                queryParamName = agentOptions.QueryPropCasingFn(memberName)!,
+                queryParamValue = $"query.{memberName}";
 
             body += $@"
                 .Add(""{queryParamName}"", {(isNullable ? $"_query => _{queryParamValue}" : queryParamValue)})";
-            
+
         }
 
         body += @"
@@ -616,9 +711,9 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
         return body;
 
-        static (int i, string, ITypeSymbol Type, bool)[] GetQueryProperties(INamedTypeSymbol queryType)
+        static (int i, string, ITypeSymbol Type, bool)[] GetQueryProperties(ITypeSymbol queryType)
         {
-            return (queryType is { IsTupleType: true, TupleElements: { } els }
+            return (queryType is INamedTypeSymbol { IsTupleType: true, TupleElements: { } els }
                         ? els
                             .Select((e, i) => (i, e.IsExplicitlyNamedTupleElement ? e.Name : $"Item{i + 1}", e.Type, IsNullable(e.Type)))
                         : queryType
@@ -634,7 +729,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
         return values.Where(e => e is { Length: > 0 }).Join(", ");
     }
 
-    private static string BuildMultipartItems(HashSet<string> usings, BuilderOptions builderOptions, INamedTypeSymbol contentType, bool isFile, string headers, string contentParamName = "content")
+    private static string BuildMultipartItems(HashSet<string> usings, AgentOptions agentOptions, INamedTypeSymbol contentType, bool isFile, string headers, string contentParamName = "content")
     {
         if (isFile)
             return @$"({contentParamName}.ToByteArrayContent(), ""{contentParamName}"", {contentParamName}.Name)";
@@ -642,23 +737,23 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
         return contentType switch
         {
             { IsValueType: true } =>
-                @$"({BuildHttpContent(usings, builderOptions, contentType, isFile, headers)}, ""{contentParamName}"", null)",
+                @$"({BuildHttpContent(usings, agentOptions, contentType, isFile, headers)}, ""{contentParamName}"", null)",
 
             { IsTupleType: true, TupleElements: { } els } =>
                 els
-                .Select(el => BuildMultiPartTuple(usings, builderOptions, (INamedTypeSymbol)el.Type, el.IsExplicitlyNamedTupleElement ? $@"""{el.Name}""" : "null", headers, isFile))
+                .Select(el => BuildMultiPartTuple(usings, agentOptions, (INamedTypeSymbol)el.Type, el.IsExplicitlyNamedTupleElement ? $@"""{el.Name}""" : "null", headers, isFile))
                 .Join(", "),
 
             _ => contentType
                 .GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => !p.IsIndexer)
-                .Select(p => BuildMultiPartTuple(usings, builderOptions, (INamedTypeSymbol)p.Type, $@"""{p.Name}""", headers, isFile))
+                .Select(p => BuildMultiPartTuple(usings, agentOptions, (INamedTypeSymbol)p.Type, $@"""{p.Name}""", headers, isFile))
                 .Join(", ")
         };
     }
 
-    private static string BuildFormUrlEncodedItems(HashSet<string> usings, BuilderOptions builderOptions, INamedTypeSymbol contentType, string headers)
+    private static string BuildFormUrlEncodedItems(HashSet<string> usings, AgentOptions agentOptions, INamedTypeSymbol contentType, string headers)
     {
         return contentType switch
         {
@@ -667,7 +762,7 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
 
             { NullableAnnotation: { } nullability, IsTupleType: true, TupleElements: { } els } =>
                 els
-                .Select(el => @$"{{ ""{builderOptions.QueryPropCasingFn(el.Name)}"": content{(nullability == NullableAnnotation.Annotated ? "?" : "")}.{{{$"{el.Name}{(el.Type.IsValueType ? "" : "?")}"}}}.ToString() }}")
+                .Select(el => @$"{{ ""{agentOptions.QueryPropCasingFn(el.Name)}"": content{(nullability == NullableAnnotation.Annotated ? "?" : "")}.{{{$"{el.Name}{(el.Type.IsValueType ? "" : "?")}"}}}.ToString() }}")
                 .Join(@", 
                         "),
 
@@ -675,50 +770,83 @@ using static SourceCrafter.HttpServiceClient.HttpHelpers;
                 .GetMembers()
                 .OfType<IPropertySymbol>()
                 .Where(p => !p.IsIndexer)
-                .Select(p => BuildMultiPartTuple(usings, builderOptions, (INamedTypeSymbol)p.Type, $@"""{p.Name}""", headers, false)).Join(@", 
+                .Select(p => BuildMultiPartTuple(usings, agentOptions, (INamedTypeSymbol)p.Type, $@"""{p.Name}""", headers, false)).Join(@", 
                         ")
         };
     }
 
-    private static string BuildMultiPartTuple(HashSet<string> usings, BuilderOptions builderOptions, INamedTypeSymbol type, string fieldName, string headers, bool isFile)
+    private static string BuildMultiPartTuple(HashSet<string> usings, AgentOptions agentOptions, INamedTypeSymbol type, string fieldName, string headers, bool isFile)
     {
-        return $@"({BuildHttpContent(usings, builderOptions, type, isFile, headers)}, {fieldName}, {isFile}{(isFile ? ", content.Name" : "")})";
+        return $@"({BuildHttpContent(usings, agentOptions, type, isFile, headers)}, {fieldName}, {isFile}{(isFile ? ", content.Name" : "")})";
     }
 
-    private static string BuildHttpContent(HashSet<string> usings, BuilderOptions builderOptions, INamedTypeSymbol contentType, bool isFile, string headers)
+    private static string BuildHttpContent(HashSet<string> usings, AgentOptions agentOptions, INamedTypeSymbol contentType, bool isFile, string headers)
     {
         return isFile ? "content.ToByteArrayContent()" : $@"CreateFormUrlEncoded(new Dictionary<string, string> {{
-                        {BuildFormUrlEncodedItems(usings, builderOptions, contentType, headers)}
+                        {BuildFormUrlEncodedItems(usings, agentOptions, contentType, headers)}
                     }}";
     }
 
-    private static string GetType(HashSet<string> usings, ITypeSymbol type, out string name)
+    static string GetType(ITypeSymbol type, bool useInterfaceImplName = false)
     {
-        return name = GetType(usings, type);
-    }
-
-    private static string GetType(HashSet<string> usings, ITypeSymbol type)
-    {
-        RegisterNamespace(usings, type.ContainingNamespace.ToString());
-
-        string name = type switch
+        return type switch
         {
+
+            IArrayTypeSymbol { ElementType: { } arrayType }
+                => GetType(arrayType) + "[]",
+
             INamedTypeSymbol { Name: "Nullable", TypeArguments: [{ } underlyingType] }
-                => $"{GetType(usings, underlyingType)}?",
+                => $"{GetType(underlyingType)}?",
 
             INamedTypeSymbol { IsTupleType: true, TupleElements: var elements }
-                => $"({elements.Join(f => $"{GetType(usings, f.Type)}{(f.IsExplicitlyNamedTupleElement ? $" {f.Name}" : "")}", ", ")})",
+                => $"({elements.Join(f => $"{GetType(f.Type)}{(f.IsExplicitlyNamedTupleElement ? $" {f.Name}" : "")}", ", ")})",
 
-            INamedTypeSymbol { Name: var typeName, TypeArguments: { Length: > 0 } generics }
-                => $"{typeName}<{generics.Join(g => GetType(usings, g), ", ")}>",
+            INamedTypeSymbol { Name: var name, TypeArguments: { Length: > 0 } generics }
+                => (GetPossibleNamsepace(type) + $".{name}<{generics.Join(g => GetType(g), ", ")}>").TrimStart('.'),
             _
-                => IsPrimitive((INamedTypeSymbol)type) ? type.ToDisplayString() : type.Name
+                => GetTypeName(type, useInterfaceImplName)
         };
-
-        return name is not [.., '?'] && type.NullableAnnotation == NullableAnnotation.Annotated 
-            ? name + '?' 
-            : name;
     }
+
+    private static string GetPossibleNamsepace(ITypeSymbol type)
+    {
+        return type.ContainingNamespace?.ToDisplayString()?.Replace("<global namespace>", "") ?? "";
+    }
+
+    private static string GetTypeName(ITypeSymbol type, bool useInterfaceImplName)
+    {
+        var isPrimitive = IsPrimitive((INamedTypeSymbol)type);
+        var typeName = isPrimitive ? type.ToDisplayString() : type.Name;
+
+        if (useInterfaceImplName && typeName[0] == 'I' && type.TypeKind == TypeKind.Interface)
+            typeName = typeName[1..];
+
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+            typeName += "?";
+
+        return isPrimitive ? typeName : (GetPossibleNamsepace(type) + '.' + typeName).TrimStart('.');
+    }
+
+    private static string GetImplementationClassName(ITypeSymbol type)
+    {
+        var isPrimitive = IsPrimitive((INamedTypeSymbol)type);
+        var typeName = isPrimitive ? type.ToDisplayString() : type.Name;
+
+        return (typeName[0] == 'I' && type.TypeKind == TypeKind.Interface)
+            ? typeName[1..]
+            : typeName;
+    }
+
+    private static string GetSimpleTypeName(ITypeSymbol type)
+    {
+        var typeName = IsPrimitive((INamedTypeSymbol)type) ? type.ToDisplayString() : type.Name;
+
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+            typeName += "?";
+
+        return typeName;
+    }
+
 
     private static bool IsNullable(ITypeSymbol type)
     {

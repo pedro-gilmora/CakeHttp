@@ -3,60 +3,50 @@ using SourceCrafter.HttpServiceClient.Enums;
 using SourceCrafter.HttpServiceClient.Operations;
 using System.Text.Json.Serialization;
 using System.Net;
+using System.Text.Json;
+using HttpServiceClient.UnitTests.Models.Json;
 
-namespace FacilCuba.Infrastructure.QvaPay;
+namespace CryptoExchange;
 
-[HttpOptions("https://qvapay.com/api", PropertyCasing = Casing.LowerCase, PathCasing = Casing.CamelCase)]
-public interface IQvaPayApi
+[HttpJsonService<QvaPayJsonContext>("https://qvapay.com/api")]
+public interface IQvaPay
 {
     IAuth Auth { get; }
-    IUser User { get; }
-    ITransactions Transactions { get; }
+    IHttpGet<Result<MeAsUser>> User { get; }
+    IHttpGet<Result<List<Transaction>>> Transactions { get; }
     void UpdateAuthenticationStatus(string? authToken);
 }
 
-public interface IAuth
+public partial interface IAuth
 {
-    ILogin Login { get; }
-    ILogout Logout { get; }
-}
-
-public interface ILogin : IPost<Credentials, LoginResponse>
-{
-}
-
-public interface ILogout : IGet</*responseType: Xml*/ object>
-{
-}
-
-public interface IUser : IGet<MeAsUser>
-{
-}
-
-public interface ITransactions : IGet<List<Transaction>>
-{
+    IHttpPost<(Credentials body, LoginResponse, Dictionary<string, JsonElement>? _422)> Login { get; }
+    IHttpGet<Result<JsonElement>> Logout { get; }
 }
 
 #pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
 public partial class QvaPayClient
 {
-    
     public void UpdateAuthenticationStatus(string? authToken)
     {
         if (authToken != null)
-            _agent._httpClient.DefaultRequestHeaders.Add("Authorization", authToken);
+            QvaPayAgent.Default.Client.DefaultRequestHeaders.Add("Authorization", "Bearer " + authToken);
         else
-            _agent._httpClient.DefaultRequestHeaders.Remove("Authorization");
+            QvaPayAgent.Default.Client.DefaultRequestHeaders.Remove("Authorization");
     }
 }
 
-public class Credentials
+[JsonSerializable(typeof(Credentials))]
+[JsonSerializable(typeof(Dictionary<string, JsonElement>))]
+[JsonSerializable(typeof(MeAsUser))]
+[JsonSerializable(typeof(Transaction))]
+[JsonSerializable(typeof(LoginResponse))]
+internal partial class QvaPayJsonContext : JsonSerializerContext
 {
-    public string Email { get; set; }
-    public string Password { get; set; }
 }
 
-public class ApiResponse  
+public record struct Credentials(string Email, string Password);
+
+public class ApiResponse
 {
     public HttpStatusCode? Code { get; set; }
     public string Message { get; set; }
@@ -72,7 +62,8 @@ public class LoginResponse
 }
 
 [JsonSerializable(typeof(User))]
-public class User : UserBase {
+public class User : UserBase
+{
     public string Logo { get; set; }
     public int? Kyc { get; set; }
     public string Email { get; set; }

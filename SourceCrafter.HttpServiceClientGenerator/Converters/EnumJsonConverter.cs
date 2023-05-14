@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SourceCrafter.HttpServiceClient.Enums;
-using SourceCrafter.HttpServiceClient.Policy;
+using SourceCrafter.HttpServiceClient.Policies;
 
 namespace SourceCrafter.HttpServiceClient.Converters;
 

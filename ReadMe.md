@@ -211,7 +211,7 @@ public interface IPetActionsByPetIdUploadImage :
 would generate the following service class (based on the previous definition example):
 ```csharp
 //<auto generated>
-using static SourceCrafter.HttpServiceClient.HttpHelpers;
+using static SourceCrafter.HttpServiceClient.GeneratorHelpers;
 using System.Net.Http.Json;
 using System.IO;
 using System;
@@ -237,7 +237,7 @@ namespace Domain.Service
         public async Task<ApiResponse> PostAsync(FileInfo file, Func<HttpRequestMessage, Task> beforeSend = default, Func<HttpResponseMessage, Task> afterSend = default, CancellationToken cancellationToken = default)
         {
             var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_path, UriKind.Relative)) {
-                Content = HttpHelpers.CreateMultipartFormData(ArrayFrom((file.ToByteArrayContent(), "file", file.Name)))
+                Content = GeneratorHelpers.CreateMultipartFormData(ArrayFrom((file.ToByteArrayContent(), "file", file.Name)))
             };
             var response = await _agent._httpClient.SendAsync(request, cancellationToken);
 

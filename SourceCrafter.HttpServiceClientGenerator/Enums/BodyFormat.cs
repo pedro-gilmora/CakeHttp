@@ -1,6 +1,6 @@
 ﻿namespace SourceCrafter.HttpServiceClient.Enums;
 
-public enum BodyType : byte
+public enum BodyFormat : byte
 {
     Any = 0,
     Json = 1,

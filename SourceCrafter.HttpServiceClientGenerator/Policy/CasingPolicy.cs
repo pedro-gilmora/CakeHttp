@@ -1,34 +1,31 @@
-﻿using System.Text.Json;
+﻿#nullable enable
+using System.Text.Json;
 using SourceCrafter.HttpServiceClient.Enums;
-using System.Text;
 using System;
-using SourceCrafter.HttpServiceClient;
-using Microsoft.CodeAnalysis;
 
-namespace SourceCrafter.HttpServiceClient.Policy;
+namespace SourceCrafter.HttpServiceClient.Policies;
 
 public class CasingPolicy : JsonNamingPolicy
 {
 
-    private readonly Func<object, string> _converter;
+    private readonly Func<object?, string?> _converter;
 
     private CasingPolicy(Casing casing) => _converter = GetConverter(casing);
 
-    internal static Func<object, string> GetConverter(Casing casing)
+    internal static Func<object?, string?> GetConverter(Casing casing)
     {
         return casing switch
         {
-            Casing.CamelCase => r => $"{r}".ToCamelCase(),
-            Casing.PascalCase => r => $"{r}".ToPascalCase(),
+            Casing.CamelCase => r => $"{r}".ToCamel(),
+            Casing.PascalCase => r => $"{r}".ToPascal(),
             Casing.LowerCase => r => $"{r}".ToLower(),
             Casing.UpperCase => r => $"{r}".ToUpper(),
-            Casing.LowerSnakeCase => r => $"{r}".ToLowerSnakeCase(),
-            Casing.UpperSnakeCase => r => $"{r}".ToUpperSnakeCase(),
+            Casing.LowerSnakeCase => r => $"{r}".ToSnakeLower(),
+            Casing.UpperSnakeCase => r => $"{r}".ToSnakeUpper(),
             Casing.Digit => r => r switch
             {
                 Enum e => e.ToString("D"),
-                object e => e.ToString(),
-                _ => "0"
+                _ => r?.ToString()
             },
             _ => r => $"{r}",
         };
@@ -38,6 +35,6 @@ public class CasingPolicy : JsonNamingPolicy
 
     public override string ConvertName(string name)
     {
-        return _converter(name);
+        return _converter(name)!;
     }
 }

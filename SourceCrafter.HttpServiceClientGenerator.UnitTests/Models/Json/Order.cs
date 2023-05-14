@@ -1,5 +1,5 @@
 ﻿namespace HttpServiceClient.UnitTests.Models.Json;
-
+    
 public class Order
 {
     public int Id { get; set; }
