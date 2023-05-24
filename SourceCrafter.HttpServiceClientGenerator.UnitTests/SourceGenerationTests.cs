@@ -1,4 +1,5 @@
-﻿using HttpServiceClient.UnitTests.Models.Json.Client;
+﻿#if DEBUG
+using HttpServiceClient.UnitTests.Models.Json.Client;
 using HttpServiceClient.UnitTests.Models.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -8,7 +9,6 @@ using System.Collections.Immutable;
 using System.Net.Http.Json;
 using Generator = SourceCrafter.ServiceGenerator;
 
-#if DEBUG
 namespace SourceCrafter.HttpServiceClient.UnitTests
 {
     public class SourceGenerationTests
