@@ -223,6 +223,10 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 {extraInfo}
 */
 {agentClass}";
+#else
+            agentClass = $@"using static global::SourceCrafter.HttpServiceClient.GeneratorHelpers;
+
+{agentClass}";
 #endif
             addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.http.cs", $@"//<auto generated>
 {agentClass}");
