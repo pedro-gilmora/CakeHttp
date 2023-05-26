@@ -212,13 +212,15 @@ DefaultFormat: {agentOptions.DefaultFormat}");
     }}
 }}";
 #if DEBUG
-            agentClass = $@"using static global::SourceCrafter.HttpServiceClient.GeneratorHelpers;
+            agentClass = $@"using static global::SourceCrafter.HttpExtensions;
+using static global::SourceCrafter.StringExtensions;
 /* Extra Info
 {extraInfo}
 */
 {agentClass}";
 #else
-            agentClass = $@"using static global::SourceCrafter.HttpServiceClient.GeneratorHelpers;
+            agentClass = $@"using static global::SourceCrafter.HttpExtensions;
+using static global::SourceCrafter.StringExtensions;
 
 {agentClass}";
 #endif
@@ -330,7 +332,8 @@ DefaultFormat: {agentOptions.DefaultFormat}");
                 }
             }
 
-            var classSyntax = $@"using static global::SourceCrafter.HttpServiceClient.GeneratorHelpers;
+            var classSyntax = $@"using static global::SourceCrafter.HttpExtensions;
+using static global::SourceCrafter.StringExtensions;
 using {agentOptions.AgentTypeName} = {agentOptions.AgentFullTypeName};
 
 namespace {containingNamespace.Replace("global::", "")}
