@@ -1,4 +1,4 @@
 [submodule "SourceCrafter.Extensions"]
-    path = ../SourceCrafter.Extensions
-    url = https://github.com/pedro-gilmora/SourceCrafter.Extensions.git
-    branch = dev
+	path = SourceCrafter.Extensions
+	url = https://github.com/pedro-gilmora/SourceCrafter.Extensions.git
+	branch = dev
