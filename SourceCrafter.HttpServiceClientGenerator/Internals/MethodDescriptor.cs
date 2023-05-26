@@ -1,12 +1,9 @@
 ﻿#nullable enable
-using Microsoft.CodeAnalysis;
-using System.Collections.Generic;
-using System.Net;
-using SourceCrafter.HttpServiceClient.Enums;
 using System.Linq;
 using System.Collections.Immutable;
-using SourceCrafter.HttpServiceClient.Operations;
-using System;
+using Microsoft.CodeAnalysis;
+using System.Collections.Generic;
+using SourceCrafter.HttpServiceClient.Enums;
 
 namespace SourceCrafter.HttpServiceClient.Internals;
 
@@ -435,12 +432,12 @@ internal sealed class MethodDescriptor
             return expr + propCasing switch
             {
                 Casing.Digit => @".ToString(""D"")",
-                Casing.CamelCase => $".{nameof(GeneratorHelpers.ToCamel)}()",
-                Casing.PascalCase => $".{nameof(GeneratorHelpers.ToPascal)}()",
+                Casing.CamelCase => $".{nameof(StringExtensions.ToCamel)}()",
+                Casing.PascalCase => $".{nameof(StringExtensions.ToPascal)}()",
                 Casing.LowerCase => $".ToLower()",
                 Casing.UpperCase => $".ToUpper()",
-                Casing.LowerSnakeCase => $".{nameof(GeneratorHelpers.ToSnakeLower)}()",
-                Casing.UpperSnakeCase => $".{nameof(GeneratorHelpers.ToSnakeUpper)}()"
+                Casing.LowerSnakeCase => $".{nameof(StringExtensions.ToSnakeLower)}()",
+                Casing.UpperSnakeCase => $".{nameof(StringExtensions.ToSnakeUpper)}()"
             };
 #pragma warning restore CS8509 // La expresión switch no controla todos los valores posibles de su tipo de entrada (no es exhaustiva).
         }

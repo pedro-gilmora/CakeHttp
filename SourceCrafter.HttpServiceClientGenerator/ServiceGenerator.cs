@@ -1,23 +1,17 @@
 ﻿#nullable enable
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using SourceCrafter.HttpServiceClient;
-using SourceCrafter.HttpServiceClient.Attributes;
-using SourceCrafter.HttpServiceClient.Enums;
-using SourceCrafter.HttpServiceClient.Internals;
-using SourceCrafter.HttpServiceClient.Operations;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json.Serialization;
-using System.Xml.Linq;
+using SourceCrafter.HttpServiceClient.Attributes;
+using SourceCrafter.HttpServiceClient.Enums;
+using SourceCrafter.HttpServiceClient.Internals;
+using SourceCrafter.HttpServiceClient.Operations;
 
 [assembly: InternalsVisibleTo("SourceCrafter.HttpServiceClientGenerator.UnitTests")]
 // ReSharper disable once CheckNamespace
@@ -709,7 +703,7 @@ namespace {nameSpace.Replace("global::", "")}
         }
         else
         {
-            string status = GeneratorHelpers.HttpStatuses.TryGetValue(code, out var _status) ? _status : "OK";
+            string status = SourceCrafter.HttpExtensions.HttpStatuses.TryGetValue(code, out var _status) ? _status : "OK";
             opDescriptor.Responses[status] =
                 (
                     realTypeName,
