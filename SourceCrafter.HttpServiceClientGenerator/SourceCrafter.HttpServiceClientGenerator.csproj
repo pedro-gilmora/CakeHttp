@@ -47,16 +47,12 @@
 
 	<ItemGroup>
 		<PackageReference Include="IndexRange" Version="1.0.2" PrivateAssets="all" GeneratePathProperty="true" />
+		<PackageReference Include="SourceCrafter.Extensions" Version="0.23.149.14" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="System.Memory" Version="4.5.5" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="System.Net.Http.Json" Version="7.0.1" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="System.Text.Json" Version="7.0.2" PrivateAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
-
-	<ItemGroup>
-		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-		<None Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-	</ItemGroup>
-
+	
 	<ItemGroup>
 	  <None Update="httpgen.png">
 	    <Pack>True</Pack>
@@ -67,15 +63,16 @@
 	<PropertyGroup>
 		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
 	</PropertyGroup>
+	
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>
 
 	<Target Name="GetDependencyTargetPaths">
 		<ItemGroup>
 			<TargetPathWithTargetPlatformMoniker Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" IncludeRuntimeDependency="false" />
+			<TargetPathWithTargetPlatformMoniker Include="$(PKGSourceCrafter_Extensions)\lib\netstandard2.0\SourceCrafter.Extensions.dll" IncludeRuntimeDependency="false" />
 		</ItemGroup>
 	</Target>
-
-	<Import Project="..\..\SourceCrafter.Extensions\SourceCrafter.Extensions.String\SourceCrafter.Extensions.String.projitems" Label="Shared" />
-	<Import Project="..\..\SourceCrafter.Extensions\SourceCrafter.Extensions.Collections\SourceCrafter.Extensions.Collections.projitems" Label="Shared" />
-	<Import Project="..\..\SourceCrafter.Extensions\SourceCrafter.Extensions.Roslyn\SourceCrafter.Extensions.Roslyn.projitems" Label="Shared" />
-
+	
 </Project>
