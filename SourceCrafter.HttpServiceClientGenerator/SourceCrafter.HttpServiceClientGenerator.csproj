@@ -3,7 +3,6 @@
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<LangVersion>11.0</LangVersion>
-		<Configurations>Debug;Release;Test</Configurations>
 		<PackageVersion>
 			$([System.Convert]::ToUInt16(
 				$([MSBuild]::Add(
@@ -20,6 +19,12 @@
 				))
 			))
 		</PackageVersion>
+		<!--$([System.Convert]::ToUInt16(
+				$([MSBuild]::Divide(
+					$([System.DateTime]::Now.TimeOfDay.TotalMinutes),
+					15
+				))
+			))-->
 		<Company>SourceCrafter</Company>
 		<Description>Generator for Web API Services through interfaces</Description>
 		<PackageReadmeFile>ReadMe.md</PackageReadmeFile>
@@ -27,11 +32,9 @@
 		<PackageIcon>httpgen.png</PackageIcon>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
 		<Nullable>enable</Nullable>
+		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+		<IsRoslynComponent>true</IsRoslynComponent>
 	</PropertyGroup>
-
-	<ItemGroup>
-	  <Compile Remove="HttpServiceClientGenerator.cs" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<None Include="..\ReadMe.md">
@@ -41,38 +44,43 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" GeneratePathProperty="true" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="IndexRange" Version="1.0.2" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="SourceCrafter.Extensions" Version="0.23.149.14" PrivateAssets="all" GeneratePathProperty="true" />
 		<PackageReference Include="System.Memory" Version="4.5.5" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="System.Net.Http.Json" Version="7.0.1" PrivateAssets="all" GeneratePathProperty="true" />
-		<PackageReference Include="System.Text.Json" Version="7.0.2" PrivateAssets="all" GeneratePathProperty="true" />
-	</ItemGroup>
-	
-	<ItemGroup>
-	  <None Update="httpgen.png">
-	    <Pack>True</Pack>
-	    <PackagePath>\</PackagePath>
-	  </None>
+		<PackageReference Include="System.Text.Json" Version="*"/>
+		<PackageReference Include="System.Net.Http.Json" Version="*" PrivateAssets="all" GeneratePathProperty="true"/>
+		<PackageReference Include="SourceCrafter.Extensions" Version="0.23.149.14"/>
 	</ItemGroup>
 
-	<PropertyGroup>
+	<ItemGroup>
+		<None Update="httpgen.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup Condition=" '$(Configuration)' == 'Release' ">
+		<None Include="$(OutputPath)\$(AssemblyName).dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
+		<None Include="$(OutputPath)\System.Text.Json.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
+		<None Include="$(OutputPath)\SourceCrafter.Extensions.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />	
+		<None Include="$(OutputPath)\System.Text.Json.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="true" />
+		<None Include="$(OutputPath)\SourceCrafter.Extensions.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="true" />	
+	</ItemGroup>
+		<!--<None Include="$(OutputPath)\System.Net.Http.Json.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />-->
+		<!--<None Include="$(OutputPath)\System.Text.Json.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="false" />
+		<None Include="$(OutputPath)\System.Text.Json.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
+		<None Include="$(OutputPath)\SourceCrafter.Extensions.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />	
+		
+		<None Include="$(OutputPath)\SourceCrafter.Extensions.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="false" />-->
+
+	<PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
 		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
 	</PropertyGroup>
-	
-	<ItemGroup>
-		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-	</ItemGroup>
-
-	<Target Name="GetDependencyTargetPaths">
+	<Target Name="GetDependencyTargetPaths" Condition=" '$(Configuration)' == 'Release' ">
 		<ItemGroup>
-			<TargetPathWithTargetPlatformMoniker Include="$(PKGSystem_Text_Json)\lib\netstandard2.0\System.Text.Json.dll" IncludeRuntimeDependency="false" />
-			<TargetPathWithTargetPlatformMoniker Include="$(PKGSourceCrafter_Extensions)\lib\netstandard2.0\SourceCrafter.Extensions.dll" IncludeRuntimeDependency="false" />
+			<TargetPathWithTargetPlatformMoniker Include="$(PkgSystem_Text_Json)\lib\netstandard2.0\*.dll" IncludeRuntimeDependency="true" Visible="false" />
+			<TargetPathWithTargetPlatformMoniker Include="$(PkgSourceCrafter_Extensions)\lib\netstandard2.0\*.dll" IncludeRuntimeDependency="true" Visible="false" />
 		</ItemGroup>
 	</Target>
-	
 </Project>
