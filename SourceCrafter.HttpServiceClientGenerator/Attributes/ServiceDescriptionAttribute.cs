@@ -6,6 +6,6 @@ namespace SourceCrafter.HttpServiceClient.Attributes;
 public class ServiceDescriptionAttribute : Attribute
 {
 #pragma warning disable IDE0060 // Quitar el parámetro no utilizado
-    public ServiceDescriptionAttribute(string serviceName, string segment = null) { }
+    public ServiceDescriptionAttribute(string? serviceName = null, string? segment = null) { }
 #pragma warning restore IDE0060 // Quitar el parámetro no utilizado
 }

@@ -219,7 +219,8 @@ using static global::SourceCrafter.StringExtensions;
 */
 {agentClass}";
 #else
-            agentClass = $@"using static global::SourceCrafter.HttpExtensions;
+            agentClass = $@"using global::System.Linq;
+using static global::SourceCrafter.HttpExtensions;
 using static global::SourceCrafter.StringExtensions;
 
 {agentClass}";

@@ -1,6 +1,6 @@
 using FluentAssertions;
-using HttpServiceClient.UnitTests.Models.Json;
-using HttpServiceClient.UnitTests.Models.Json.Client;
+using SmartBear.Json;
+using SmartBear.Json;
 using Newtonsoft.Json.Converters;
 using SourceCrafter.HttpServiceClient.Operations;
 using System.Xml.Linq;

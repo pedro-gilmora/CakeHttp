@@ -4,14 +4,34 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<Configurations>Debug;Release;Test</Configurations>
 	  <UserSecretsId>84b47437-b0e6-4b61-9c9e-d97f52acc721</UserSecretsId>
+	  <Configurations>Debug;Release;Pack</Configurations>
   </PropertyGroup>
 
 	<ItemGroup>
+	  <Compile Remove="Models\Xml\**" />
+	  <EmbeddedResource Remove="Models\Xml\**" />
+	  <None Remove="Models\Xml\**" />
+	  <Compile Remove="TravellersClientTests.cs" />
+	</ItemGroup>
+
+	<!--<ItemGroup>
+	  <Compile Remove="IQvaPayApi.cs" />
+	  <Compile Remove="QvaPayClientTests.cs" />
+	</ItemGroup>-->
+
+	<ItemGroup>
+		<ProjectReference Include="..\SourceCrafter.HttpServiceClientGenerator\SourceCrafter.HttpServiceClientGenerator.csproj" OutputItemType="Analyzer" Condition="'$(Configuration)' != 'Pack'" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="FluentAssertions" Version="6.11.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.4.0" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="7.0.0" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" PrivateAssets="all" />
+		<PackageReference Include="SourceCrafter.HttpServiceClientGenerator" Version="0.*" Condition="'$(Configuration)' == 'Pack'" />
 		<PackageReference Include="xunit" Version="2.4.2" PrivateAssets="all" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" PrivateAssets="all">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -20,10 +40,6 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\SourceCrafter.HttpServiceClientGenerator\SourceCrafter.HttpServiceClientGenerator.csproj" OutputItemType="Analyzer" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -13,7 +13,9 @@ namespace SourceCrafter.HttpServiceClient.Internals;
 
 internal sealed class AgentOptions
 {
+#pragma warning disable CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
     internal AgentOptions(AttributeData attr, string agentNamespace, string agentTypeName)
+#pragma warning restore CS8618 // Un campo que no acepta valores NULL debe contener un valor distinto de NULL al salir del constructor. Considere la posibilidad de declararlo como que admite un valor NULL.
     {
         BaseUrl = new(attr.ConstructorArguments.FirstOrDefault().Value as string ?? "http://localhost");
         BaseUrlAbsolutePath = BaseUrl.AbsolutePath.TrimEnd('/');

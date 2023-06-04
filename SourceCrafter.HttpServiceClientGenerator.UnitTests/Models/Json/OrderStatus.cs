@@ -1,4 +1,4 @@
-﻿namespace HttpServiceClient.UnitTests.Models.Json;
+﻿namespace SmartBear.Json;
 public enum OrderStatus
 {
     Placed, Approved, Delivered

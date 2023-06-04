@@ -2,7 +2,7 @@ using SourceCrafter.HttpServiceClient.Attributes;
 using SourceCrafter.HttpServiceClient.Enums;
 using SourceCrafter.HttpServiceClient.Operations;
 
-namespace HttpServiceClient.UnitTests.Models.Json.Client
+namespace SmartBear.Json
 {
 
     [HttpService("https://petstore.swagger.io/v2/")]

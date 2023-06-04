@@ -8,25 +8,25 @@ using System.Text;
 namespace SourceCrafter.HttpServiceClientGenerator.Internals
 {
     internal enum ObjectKind { Class, Interface }
-    internal sealed record FileDescriptor
-    {
-        internal ImmutableHashSet<string> Usings { get; set; } = ImmutableHashSet<string>.Empty;
+    //internal sealed record FileDescriptor
+    //{
+    //    internal ImmutableHashSet<string> Usings { get; set; } = ImmutableHashSet<string>.Empty;
 
-        //public override string ToString()
-        //{
-        //    StringBuilder builder = new("");
-        //    foreach
-        //    return builder.ToString();
-        //}
-    }
+    //    //public override string ToString()
+    //    //{
+    //    //    StringBuilder builder = new("");
+    //    //    foreach
+    //    //    return builder.ToString();
+    //    //}
+    //}
 
     internal sealed record TypeDescriptor
     {
         internal ObjectKind Kind { get; set; } = ObjectKind.Class;
-        internal string Name { get; set; }
-        internal string Namespace { get; set; }
-        internal string Initializer { get; set; }
-        internal string Modifier { get; set; }
+        internal string Name { get; set; } = null!;
+        internal string Namespace { get; set; } = null!;
+        internal string Initializer { get; set; } = null!;
+        internal string Modifier { get; set; } = null!;
         internal ImmutableHashSet<string> Usings { get; set; } = ImmutableHashSet<string>.Empty;
         internal ImmutableHashSet<TypeDescriptor> OtherTypes { get; set; } = ImmutableHashSet<TypeDescriptor>.Empty;
         internal ImmutableHashSet<string> Base { get; set; } = ImmutableHashSet<string>.Empty;
@@ -53,12 +53,12 @@ namespace {Namespace}
     internal enum MemberType { Method, Property, Indexer, Field }
     internal sealed record ObjectMember
     {
-        internal string Name { get; set; }
+        internal string Name { get; set; } = null!;
         internal MemberType Type { get; set; }
         internal string? Modifiers { get; set; }
         internal CommaSeparatedSyntax Parameters { get; set; } = new();
-        internal string Return { get; set; }
-        internal string Body { get; set; }
+        internal string Return { get; set; } = null!;
+        internal string Body { get; set; } = null!;
 
         internal void ToString(StringBuilder builder)
         {

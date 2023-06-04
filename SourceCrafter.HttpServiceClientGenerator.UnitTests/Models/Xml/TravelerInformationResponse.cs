@@ -1,6 +1,6 @@
 ﻿using System.Xml.Serialization;
 
-namespace HttpServiceClient.UnitTests.Models.Xml
+namespace AppsLoveWorld.Xml
 {
     [Serializable, XmlRoot("TravelerinformationResponse")]
     public class TravelerInformationResponse

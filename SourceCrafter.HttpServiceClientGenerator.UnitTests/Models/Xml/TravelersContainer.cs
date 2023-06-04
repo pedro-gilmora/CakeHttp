@@ -1,6 +1,6 @@
 ﻿using System.Xml.Serialization;
 
-namespace HttpServiceClient.UnitTests.Models.Xml
+namespace AppsLoveWorld.Xml
 {
     public class TravelersContainer
     {

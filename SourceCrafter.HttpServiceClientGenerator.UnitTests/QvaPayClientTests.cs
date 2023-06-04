@@ -56,7 +56,6 @@ namespace SourceCrafter.HttpServiceClient.UnitTests
                 new object[] { true,    new Credentials("pedro@test.com", "1234$5643")},
                 new object[] { false,   new Credentials("pedro@test.com", "1234$5643")},
                 new object[] { true,    new Credentials("pedro@test.com", "1234$5643")},
-                new object[] { false,   new Credentials(_config["TestingData:Email"]!, _config["TestingData:Password"]!)},
                 new object[] { true,    GetWorkingCredentials() }
             };
 

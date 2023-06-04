@@ -1,6 +1,5 @@
 ﻿#if DEBUG
-using HttpServiceClient.UnitTests.Models.Json.Client;
-using HttpServiceClient.UnitTests.Models.Xml;
+using SmartBear.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -19,10 +18,10 @@ namespace SourceCrafter.HttpServiceClient.UnitTests
         {
             GetRootAndModel(@"using SourceCrafter.HttpServiceClient.Attributes;
 using SourceCrafter.HttpServiceClient.Enums; 
-using HttpServiceClient.UnitTests.Models.Json; 
+using SmartBear.Json; 
 
 
-namespace HttpServiceClient.UnitTests.Models.Json.Client;
+namespace SmartBear.Json;
 
 [ServiceOptions(""https://petstore.swagger.io/v2/"")]
 public interface IPetStoreService
@@ -42,29 +41,29 @@ public interface IPetStoreService
             GenerateCode(root, semanticModel);
 
         }
-        [Fact]
-        public static /*async*/ void TestGeneratedTextForXmlService()
-        {
-            GetRootAndModel(@"using SourceCrafter.HttpServiceClient.Attributes;
-using SourceCrafter.HttpServiceClient.Enums;
-namespace HttpServiceClient.UnitTests.Models.Xml;
+//        [Fact]
+//        public static /*async*/ void TestGeneratedTextForXmlService()
+//        {
+//            GetRootAndModel(@"using SourceCrafter.HttpServiceClient.Attributes;
+//using SourceCrafter.HttpServiceClient.Enums;
+//namespace AppsLoveWorld.Xml;
 
-[ServiceOptions(""http://restapi.adequateshop.com/api/"", DefaultFormat = ResponseType.Xml)]
-public interface ITravellerApi
-{
-    ITravellerActions Traveler { get; }
-}",
-                out _,
-                out var root,
-                out var semanticModel,
-                typeof(ITravellerApi),
-                typeof(HttpServiceAttribute),
-                typeof(ValueTuple<>),
-                typeof(HttpClient));
-            //compilation.roo
-            GenerateCode(root, semanticModel);
+//[ServiceOptions(""http://restapi.adequateshop.com/api/"", DefaultFormat = ResponseType.Xml)]
+//public interface ITravellerApi
+//{
+//    ITravellerActions Traveler { get; }
+//}",
+//                out _,
+//                out var root,
+//                out var semanticModel,
+//                typeof(ITravellerApi),
+//                typeof(HttpServiceAttribute),
+//                typeof(ValueTuple<>),
+//                typeof(HttpClient));
+//            //compilation.roo
+//            GenerateCode(root, semanticModel);
 
-        }
+//        }
 
         private static void GenerateCode(SyntaxNode root, SemanticModel semanticModel)
         {

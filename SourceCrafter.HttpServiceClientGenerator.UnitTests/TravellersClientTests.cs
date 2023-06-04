@@ -43,7 +43,7 @@ public class TravellerClientTests : IClassFixture<TravellerClient>
     private async Task<TravelerInformationResponse?> GetTravellers(bool useDedicatedService)
     {
         var _ITravellerActions = useDedicatedService ? new TravellerActionsService() : _client.Traveler;
-        return await _ITravellerActions.GetAsync(PetStatus.Pending);
+        return await _ITravellerActions.GetAsync();
     }
 
     private async Task<TravelerInformation?> GetTravelerById(bool useDedicatedService, int id)

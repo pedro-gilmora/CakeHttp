@@ -4,7 +4,7 @@ using SourceCrafter.HttpServiceClient.Operations;
 using System.Text.Json.Serialization;
 using System.Net;
 using System.Text.Json;
-using HttpServiceClient.UnitTests.Models.Json;
+using SmartBear.Json;
 
 namespace CryptoExchange;
 

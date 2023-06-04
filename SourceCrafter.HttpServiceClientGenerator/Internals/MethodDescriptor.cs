@@ -247,6 +247,8 @@ internal sealed class MethodDescriptor
             {
                 var paramName = _opts.QueryPropCasingFn(queryParameterName)!;
 
+                requestSyntax += $@"?{paramName}=";
+
                 var isEnumOrString = queryType.TypeKind == TypeKind.Enum || queryType.SpecialType == SpecialType.System_String;
                 var queryCasing = isEnumOrString ? _opts.EnumQueryCasing : _opts.QueryCasing;
 
@@ -255,7 +257,7 @@ internal sealed class MethodDescriptor
                 else
                     paramName = $@"global::System.Uri.EscapeDataString($""{{{paramName}}}"")";
 
-                requestSyntax += $@"?{paramName}={{{paramName}}}";
+                requestSyntax+= $"{{{paramName}}}";
             }
             else
             {
