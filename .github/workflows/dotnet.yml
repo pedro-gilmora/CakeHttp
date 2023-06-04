@@ -33,5 +33,5 @@ jobs:
     - name: Publish to Nuget
       if: github.ref_name == 'dev'
       run: |
-        package="$(find . -wholename '**/Release/*.nupkg' -exec echo "{}" \;)"
+        package="$(find . -wholename '**/Pack/*.nupkg' -exec echo "{}" \;)"
         dotnet nuget push $package --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
