@@ -2,5 +2,6 @@
     "omnisharp.dotnetPath": "/workspaces/HttPie.Generator/.devcontainer/dotnet/",
     "omnisharp.sdkPath": "/workspaces/HttPie.Generator/.devcontainer/dotnet/",
     "omnisharp.testRunSettings": "",
-    "omnisharp.useModernNet": true
+    "omnisharp.useModernNet": true,
+    "dotnet.defaultSolution": "SourceCrafter.HttpServiceClientGenerator/SourceCrafter.HttpServiceClientGenerator.sln"
 }

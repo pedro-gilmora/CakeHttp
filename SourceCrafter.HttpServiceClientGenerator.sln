@@ -17,17 +17,22 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceCrafter.HttpServiceCl
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug SG|Any CPU = Debug SG|Any CPU
 		Debug|Any CPU = Debug|Any CPU
 		Pack|Any CPU = Pack|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Debug SG|Any CPU.ActiveCfg = Debug SG|Any CPU
+		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Debug SG|Any CPU.Build.0 = Debug SG|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Pack|Any CPU.ActiveCfg = Pack|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Pack|Any CPU.Build.0 = Pack|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4DF5BF1A-327B-432B-B18B-72ADB8BCF9EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CC7DE039-C91A-4D6D-9481-8F64FE98C24C}.Debug SG|Any CPU.ActiveCfg = Debug SG|Any CPU
+		{CC7DE039-C91A-4D6D-9481-8F64FE98C24C}.Debug SG|Any CPU.Build.0 = Debug SG|Any CPU
 		{CC7DE039-C91A-4D6D-9481-8F64FE98C24C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CC7DE039-C91A-4D6D-9481-8F64FE98C24C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CC7DE039-C91A-4D6D-9481-8F64FE98C24C}.Pack|Any CPU.ActiveCfg = Pack|Any CPU

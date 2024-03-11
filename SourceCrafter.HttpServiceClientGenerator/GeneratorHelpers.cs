@@ -9,6 +9,9 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 using System.Threading.Tasks;
 using System.Threading;
+using System;
+using System.Runtime.Serialization;
+using System.Net;
 
 namespace SourceCrafter;
 
@@ -27,7 +30,7 @@ public static class HttpExtensions
     }
     public static MultipartFormDataContent CreateMultipartFormData(this (HttpContent, string?, string?)[] contents)
     {
-        MultipartFormDataContent multipartFormDataContent = new();
+        MultipartFormDataContent multipartFormDataContent = [];
         foreach (var (content, name, fileName) in contents)
         {
             if (content != null)
@@ -62,7 +65,7 @@ public static class HttpExtensions
             JsonContent or { Headers.ContentType.MediaType: "application/json" } =>
                 await content.ReadFromJsonAsync<T?>(opts ?? new(), cancellToken),
 
-            { Headers.ContentType.MediaType: [.., '/', 'x', 'm', 'l'] } =>
+            { Headers.ContentType.MediaType: { } mediaType } when mediaType.Contains("xml") =>
                 await content.ToXmlAsync<T?>(cancellToken),
 
             { } when typeof(T) == typeof(string) && await Task.Run(content.ReadAsStringAsync, cancellToken) is T _out => _out,
@@ -92,69 +95,134 @@ public static class HttpExtensions
         new XmlSerializer(typeof(T)).Serialize(memoryStream, tIn);
         return new StreamContent(memoryStream);
     }
+}
 
+public static class Extensions
+{
+    internal static bool IsNullable(this ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol != null && (typeSymbol.NullableAnnotation == NullableAnnotation.Annotated || (typeSymbol is INamedTypeSymbol && typeSymbol.Name == "Nullable")))
+        {
+            return true;
+        }
 
-    internal static readonly Dictionary<int, string> HttpStatuses = new() {
-            { 100, "Continue" },
-            { 101, "SwitchingProtocols" },
-            { 102, "Processing" },
-            { 103, "EarlyHints" },
-            { 200, "OK" },
-            { 201, "Created" },
-            { 202, "Accepted" },
-            { 203, "NonAuthoritativeInformation" },
-            { 204, "NoContent" },
-            { 205, "ResetContent" },
-            { 206, "PartialContent" },
-            { 207, "MultiStatus" },
-            { 208, "AlreadyReported" },
-            { 226, "IMUsed" },
-            { 300, "Ambiguous" },
-            { 301, "Moved" },
-            { 302, "Found" },
-            { 303, "RedirectMethod" },
-            { 304, "NotModified" },
-            { 305, "UseProxy" },
-            { 306, "Unused" },
-            { 307, "TemporaryRedirect" },
-            { 308, "PermanentRedirect" },
-            { 400, "BadRequest" },
-            { 401, "Unauthorized" },
-            { 402, "PaymentRequired" },
-            { 403, "Forbidden" },
-            { 404, "NotFound" },
-            { 405, "MethodNotAllowed" },
-            { 406, "NotAcceptable" },
-            { 407, "ProxyAuthenticationRequired" },
-            { 408, "RequestTimeout" },
-            { 409, "Conflict" },
-            { 410, "Gone" },
-            { 411, "LengthRequired" },
-            { 412, "PreconditionFailed" },
-            { 413, "RequestEntityTooLarge" },
-            { 414, "RequestUriTooLong" },
-            { 415, "UnsupportedMediaType" },
-            { 416, "RequestedRangeNotSatisfiable" },
-            { 417, "ExpectationFailed" },
-            { 421, "MisdirectedRequest" },
-            { 422, "UnprocessableEntity" },
-            { 423, "Locked" },
-            { 424, "FailedDependency" },
-            { 426, "UpgradeRequired" },
-            { 428, "PreconditionRequired" },
-            { 429, "TooManyRequests" },
-            { 431, "RequestHeaderFieldsTooLarge" },
-            { 451, "UnavailableForLegalReasons" },
-            { 500, "InternalServerError" },
-            { 501, "NotImplemented" },
-            { 502, "BadGateway" },
-            { 503, "ServiceUnavailable" },
-            { 504, "GatewayTimeout" },
-            { 505, "HttpVersionNotSupported" },
-            { 506, "VariantAlsoNegotiates" },
-            { 507, "InsufficientStorage" },
-            { 508, "LoopDetected" },
-            { 510, "NotExtended" },
-            { 511, "NetworkAuthenticationRequired" }
-        };
+        return false;
+    }
+
+    internal static bool AllowsNull(this ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol == null || typeSymbol.IsValueType || typeSymbol.IsTupleType)
+        {
+            return typeSymbol?.IsNullable() ?? false;
+        }
+
+        return true;
+    }
+
+    public static string Join<T>(this IEnumerable<T> strs, string? separator = "")
+    {
+        return string.Join(separator, strs);
+    }
+
+    public static string ToCamel(this string name)
+    {
+        var buffer = new char[name.Length];
+        var bufferIndex = 0;
+        var needUpper = false;
+
+        foreach (char ch in name)
+        {
+            bool isDigit = char.IsDigit(ch), isLetter = char.IsLetter(ch), isUpper = char.IsUpper(ch);
+
+            if (isLetter)
+            {
+                buffer[bufferIndex++] = bufferIndex == 1 && isUpper
+                    ? char.ToLower(ch)
+                    : !isUpper && needUpper && bufferIndex > 1 && !char.IsUpper(buffer[bufferIndex - 2])
+                        ? char.ToUpper(ch)
+                        : ch;
+
+                needUpper = false;
+                continue;
+            }
+            else if (isDigit)
+            {
+                if (bufferIndex == 0)
+                    (buffer = new char[buffer.Length + 1])[bufferIndex++] = '_';
+                buffer[bufferIndex++] = ch;
+            }
+            needUpper = true;
+        }
+        return new string(buffer, 0, bufferIndex);
+    }
+
+    public static string ToPascal(this string name)
+    {
+        var buffer = new char[name.Length];
+        var bufferIndex = 0;
+        var needUpper = false;
+
+        foreach (char ch in name)
+        {
+            bool isDigit = char.IsDigit(ch), isLetter = char.IsLetter(ch), isUpper = char.IsUpper(ch);
+
+            if (isLetter)
+            {
+                buffer[bufferIndex] = ((bufferIndex++ == 0 || needUpper) && !isUpper)
+                    ? char.ToUpper(ch)
+                    : ch;
+                needUpper = false;
+                continue;
+            }
+            else if (isDigit)
+            {
+                if (bufferIndex == 0)
+                    (buffer = new char[buffer.Length + 1])[bufferIndex++] = '_';
+                buffer[bufferIndex++] = ch;
+            }
+            needUpper = true;
+        }
+        return new string(buffer, 0, bufferIndex);
+    }
+
+    public static string ToSnakeLower(this string name) => ToJoined(name, "_");
+
+    public static string ToSnakeUpper(this string name) => ToJoined(name, "_", true);
+
+    static string ToJoined(this string name, string separator = "-", bool upper = false)
+    {
+        var buffer = new char[name.Length * (separator.Length + 1)];
+        var bufferIndex = 0;
+
+        for (int i = 0; i < name.Length; i++)
+        {
+            char ch = name[i];
+            bool isLetterOrDigit = char.IsLetterOrDigit(ch), isUpper = char.IsUpper(ch);
+
+            if (i > 0 && isUpper && char.IsLower(name[i - 1]))
+            {
+                separator.CopyTo(0, buffer, bufferIndex, separator.Length);
+                bufferIndex += separator.Length;
+            }
+            if (isLetterOrDigit)
+            {
+                buffer[bufferIndex++] = (upper, isUpper) switch
+                {
+                    (true, false) => char.ToUpperInvariant(ch),
+                    (false, true) => char.ToLowerInvariant(ch),
+                    _ => ch
+                };
+            }
+        }
+        return new string(buffer, 0, bufferIndex);
+    }
+
+    public static string? ToCamel(this Enum? value) => value?.ToString().ToCamel();
+
+    public static string? ToPascal(this Enum? value) => value?.ToString().ToPascal();
+
+    public static string? ToSnakeLower(this Enum? value) => value?.ToString().ToSnakeLower();
+
+    public static string ToSnakeUpper(this Enum value) => value.ToString().ToSnakeUpper();
+
 }

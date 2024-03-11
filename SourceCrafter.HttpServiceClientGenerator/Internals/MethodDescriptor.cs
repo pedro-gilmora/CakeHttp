@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
 using SourceCrafter.HttpServiceClient.Enums;
+using System.Threading;
 
 namespace SourceCrafter.HttpServiceClient.Internals;
 
@@ -24,12 +25,12 @@ internal sealed class MethodDescriptor
     public string? BodyTypeName { get; internal set; }
     public string HttpMethod { get; internal set; } = "Get";
     internal bool IsValid => QueryType != null || BodyType != null || Responses.Any();
-    internal Dictionary<string, (string TypeName, ResultFormat Format, bool isNullable, bool allowsNull)> Responses { get; } = new();
+    internal Dictionary<string, (string TypeName, ResultFormat Format, bool isNullable, bool allowsNull)> Responses { get; } = [];
     internal ResultFormat DefaultResultFormat => _opts.DefaultResultFormat;
     internal string BodyFormatType { get; set; } = "Json";
     internal bool NeedsJsonOptions { get => _opts.NeedsJsonOptions; set => _opts.NeedsJsonOptions = value; }
     internal string? QueryParamName { get; set; }
-    internal List<(string, string)> Headers { get; set; } = new();
+    internal List<(string, string)> Headers { get; set; } = [];
     internal string? Signature { get; set; }
     internal string ReturnTypeClass { get; set; } = "";
     public ITypeSymbol Type { get; internal set; } = null!;
@@ -105,6 +106,8 @@ internal sealed class MethodDescriptor
             switch(response.StatusCode)
             {";
 
+            //Dictionary<(string, string?), List<string>> outputPerType = [];
+
             foreach (var (status, (typeName, formatType, isNullable, allowsNull)) in responses)
             {
                 var nullable = typeName[^1] == '?';
@@ -112,34 +115,49 @@ internal sealed class MethodDescriptor
 
                 handlerSyntax += $@"
                 case global::System.Net.HttpStatusCode.{status} when response.Content?.To{formatType}Async<{typeName}>(";
-                
+
                 if (formatType == ResultFormat.Json)
                     handlerSyntax += $@"{_opts.AgentTypeName}.JsonOptions, ";
 
                 handlerSyntax += $@"cancelToken) is ";
 
-                handlerSyntax += nullable 
+                handlerSyntax += nullable
                     ? $@"var {varName} :
                     return new(response.StatusCode, {status}: {varName} != null ? (await {varName}) : null);"
                     : $@"{{}} {varName} :
                     return new(response.StatusCode, {status}: await {varName});";
 
                 string typeDef = $"{comma}{typeName} {status}";
-                
+
                 types += typeDef;
+
                 typesInit += $"{typeDef} = default";
-                
-                if (allowsNull) typesInit += "!";
-                
-                fieldsList += $"{comma}value.{status}";
+
+                var _nullBang = allowsNull ? "!" : null; 
+
+                typesInit += _nullBang;
+
+                var fieldValue = $"value.{status}";
+
+                fieldsList += comma + fieldValue;
+
                 comma ??= ", ";
+
+                /*if (outputPerType.TryGetValue((typeName, _nullBang), out var values))
+                {
+                    values.Add(status);
+                }
+                else
+                {
+                    outputPerType[(typeName, _nullBang)] = [status];
+                }*/
             }
 
             handlerSyntax += @"
             }
 
             throw response.RequestException();";
-
+           
             ReturnTypeClass = $@"
 
     public readonly record struct {resultTypeName}({typesInit})
@@ -150,6 +168,21 @@ internal sealed class MethodDescriptor
         public static implicit operator ({types})({resultTypeName} value) 
             => ({fieldsList});
     }}";
+            /*{(outputPerType.Count > 0 ? @"
+
+        " + string.Join(@"
+
+        ", outputPerType.Select(kv =>
+            {
+                string? outputPerTypeComma = null;
+
+                return $@"public static implicit operator {kv.Key.Item1}({resultTypeName} value)
+           => value.StatusCode switch
+              {{{string.Join(@"", kv.Value.Select(status => $@"{Interlocked.Exchange(ref outputPerTypeComma, ", ")}
+                  global::System.Net.HttpStatusCode.{status} => value.{status}"))},
+                  _ => default{kv.Key.Item2}
+              }};";
+            })) :null)}*/
         }
 
 
@@ -326,6 +359,7 @@ internal sealed class MethodDescriptor
         else
         {
             var members = queryType.GetMembers();
+
             for (int i = 0; i < members.Length; i++)
             {
                 switch (members[i])
@@ -336,7 +370,7 @@ internal sealed class MethodDescriptor
                         IsIndexer: false,
                         Type: { } propType,
                         Name: { } name
-                    } prop:
+                    }:
                         yield return (i, name, propType.IsNullable(), propType);
                         continue;
 
@@ -430,18 +464,17 @@ internal sealed class MethodDescriptor
         {
             if (isNullable) expr += '?';
 
-#pragma warning disable CS8509 // La expresión switch no controla todos los valores posibles de su tipo de entrada (no es exhaustiva).
             return expr + propCasing switch
             {
                 Casing.Digit => @".ToString(""D"")",
-                Casing.CamelCase => $".{nameof(StringExtensions.ToCamel)}()",
-                Casing.PascalCase => $".{nameof(StringExtensions.ToPascal)}()",
+                Casing.CamelCase => $".{nameof(Extensions.ToCamel)}()",
+                Casing.PascalCase => $".{nameof(Extensions.ToPascal)}()",
                 Casing.LowerCase => $".ToLower()",
                 Casing.UpperCase => $".ToUpper()",
-                Casing.LowerSnakeCase => $".{nameof(StringExtensions.ToSnakeLower)}()",
-                Casing.UpperSnakeCase => $".{nameof(StringExtensions.ToSnakeUpper)}()"
+                Casing.LowerSnakeCase => $".{nameof(Extensions.ToSnakeLower)}()",
+                Casing.UpperSnakeCase => $".{nameof(Extensions.ToSnakeUpper)}()",
+                _ => null
             };
-#pragma warning restore CS8509 // La expresión switch no controla todos los valores posibles de su tipo de entrada (no es exhaustiva).
         }
         else
         {

@@ -12,6 +12,7 @@ using SourceCrafter.HttpServiceClient.Attributes;
 using SourceCrafter.HttpServiceClient.Enums;
 using SourceCrafter.HttpServiceClient.Internals;
 using SourceCrafter.HttpServiceClient.Operations;
+using System.Diagnostics;
 
 [assembly: InternalsVisibleTo("SourceCrafter.HttpServiceClientGenerator.UnitTests")]
 // ReSharper disable once CheckNamespace
@@ -40,57 +41,41 @@ internal class ServiceGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var interfaceDeclarations = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
-                $"SourceCrafter.HttpServiceClient.Attributes.{nameof(HttpServiceAttribute)}",
-                static (n, _) => n is InterfaceDeclarationSyntax,
-                static (ctx, _) => (Attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
-            );
 
         context.RegisterSourceOutput(
-            interfaceDeclarations,
-            static (sourceProducer, gen) =>
+            context.SyntaxProvider
+                .ForAttributeWithMetadataName(
+                    $"SourceCrafter.HttpServiceClient.Attributes.{nameof(HttpServiceAttribute)}",
+                    static (n, _) => n is InterfaceDeclarationSyntax,
+                    static (ctx, _) => (process: "http", attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
+                ).Collect().Combine(
+                    context.SyntaxProvider
+                        .ForAttributeWithMetadataName(
+                            $"SourceCrafter.HttpServiceClient.Attributes.{nameof(HttpJsonServiceAttribute<JsonSerializerContext>)}`1",
+                            static (n, _) => n is InterfaceDeclarationSyntax,
+                            static (ctx, _) => (process: "jsonHttp", attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
+                        ).Collect()),
+            static (sourceProducer, gens) =>
             {
-                lock (Lock)
+#if DEBUG_SG
+                Debugger.Launch();
+#endif
+                foreach (var (process, attr, semanticModel, type) in gens.Left.Concat(gens.Right))
                 {
                     try
                     {
-                        CreateFiles(sourceProducer.AddSource, gen.semanticModel, gen.Attr, gen.type);
+                        CreateFiles(sourceProducer.AddSource, semanticModel, attr, type, process);
                     }
                     catch (Exception e)
                     {
-                        sourceProducer.AddSource($"{gen.type}.Error.txt", $"/*{e}*/");
-                    }
-                }
-            });
-
-        interfaceDeclarations = context.SyntaxProvider
-            .ForAttributeWithMetadataName(
-                $"SourceCrafter.HttpServiceClient.Attributes.{nameof(HttpJsonServiceAttribute<JsonSerializerContext>)}`1",
-                static (n, _) => n is InterfaceDeclarationSyntax,
-                static (ctx, _) => (Attr: ctx.Attributes[0], semanticModel: ctx.SemanticModel, type: (ITypeSymbol)ctx.TargetSymbol)
-            );
-
-        context.RegisterSourceOutput(
-            interfaceDeclarations,
-            static (sourceProducer, gen) =>
-            {
-                lock (Lock)
-                {
-                    try
-                    {
-                        CreateFiles(sourceProducer.AddSource, gen.semanticModel, gen.Attr, gen.type);
-                    }
-                    catch (Exception e)
-                    {
-                        sourceProducer.AddSource($"{gen.type}.Error.txt", $"/*{e}*/");
+                        sourceProducer.AddSource($"{type}.Error.txt", $"/*{e}*/");
                     }
                 }
             });
 
     }
 
-    internal static void CreateFiles(Action<string, string> addFile, SemanticModel semanticModel, AttributeData attr, ITypeSymbol type)
+    internal static void CreateFiles(Action<string, string> addFile, SemanticModel semanticModel, AttributeData attr, ITypeSymbol type, string process)
     {
         string
             interfaceName = type.Name,
@@ -105,7 +90,7 @@ internal class ServiceGenerator : IIncrementalGenerator
         try
         {
 
-            HashSet<string> fileNames = new();
+            HashSet<string> fileNames = [];
 
             var ctor = $@"public {clientName}(){{
             _path = ""{agentOptions.BaseUrlAbsolutePath}"";            
@@ -143,7 +128,8 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 {{
     internal sealed class {agentOptions.AgentTypeName} 
     {{
-        internal global::System.Collections.Generic.Dictionary<string, object> DefaultQueryValues = new();
+        internal string DefaultQueryValues = """";
+        private global::System.Collections.Generic.Dictionary<string, object?> defaultQueryValues = new();
         internal global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.Tasks.Task>? DefaultRequestHandler = null;
         internal global::System.Func<System.Net.Http.HttpResponseMessage, global::System.Threading.Tasks.Task>? DefaultResponseHandler = null;
         internal global::System.Net.Http.HttpClient Client;
@@ -155,9 +141,11 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 
         internal static global::System.Text.Json.JsonSerializerOptions JsonOptions {{ get; }} = InitializeJsonOptions();
         
-        private static global::System.Text.Json.JsonSerializerOptions InitializeJsonOptions(){{
-            var options = new global::System.Text.Json.JsonSerializerOptions({agentOptions.DefaultJsonContext}) {{                
-                ReferenceHandler = global::System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles{GenerateCaseConverter(agentOptions, "PropertyNamingPolicy")}                
+        private static global::System.Text.Json.JsonSerializerOptions InitializeJsonOptions()
+        {{
+            var options = new global::System.Text.Json.JsonSerializerOptions({agentOptions.DefaultJsonContext}) 
+            {{                
+                ReferenceHandler = global::System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles{GenerateCaseConverter(agentOptions.PropertyCasing, "PropertyNamingPolicy")}                
             }};
             options.Converters.Insert(0, new global::SourceCrafter.HttpServiceClient.Converters.EnumJsonConverter(global::SourceCrafter.HttpServiceClient.Enums.Casing.{agentOptions.EnumSerializationCasing}));
             return options;
@@ -167,7 +155,8 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 
         private {agentOptions.AgentTypeName}()
         {{
-            Client ??= new () {{ 
+            Client ??= new () 
+            {{ 
                 BaseAddress = new global::System.Uri(""{agentOptions.BaseAddress}"")
             }};
         }}{agentOptions.HelperMethods.Values.Join(@"
@@ -183,8 +172,20 @@ DefaultFormat: {agentOptions.DefaultFormat}");
             new global::System.Net.Http.HttpRequestMessage(
                 method, 
                 new global::System.Uri(GetUrl(path), uriKind)
-            ) 
-                {{ Content = content }};
+            )
+           {{ 
+               Content = content 
+           }};
+            
+        public static void SetDefaultValues(global::System.Collections.Generic.IDictionary<string, object?> defaults, bool clear = false)
+        {{
+            if(clear) Default.defaultQueryValues.Clear();
+            
+            foreach(var kv in defaults)
+                Default.defaultQueryValues[kv.Key] = kv.Value;
+
+            Default.DefaultQueryValues = string.Join(""&"", Default.defaultQueryValues.Select(kv => kv.Key + ""="" + global::System.Uri.EscapeDataString(kv.Value?.ToString() + """")));
+        }}
 
         internal static async global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage> SendAsync(
             global::System.Net.Http.HttpRequestMessage request, 
@@ -204,16 +205,15 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 
         internal static string GetUrl(string baseUrl) 
         {{
-            var append = string.Join(""&"", Default.DefaultQueryValues.Select(kv => kv.Key + '=' + global::System.Uri.EscapeDataString($""{{kv.Value}}"")));
-            if(append.Length > 0)
-                baseUrl += baseUrl.StartsWith(""?"") ? '&' : '?';
-            return baseUrl + append;
+            if(Default.DefaultQueryValues.Length > 0)
+                baseUrl += baseUrl.StartsWith(""?"") ? ""&"" : ""?"";
+            return baseUrl + Default.DefaultQueryValues;
         }}
     }}
 }}";
 #if DEBUG
             agentClass = $@"using static global::SourceCrafter.HttpExtensions;
-using static global::SourceCrafter.StringExtensions;
+using static global::SourceCrafter.Extensions;
 /* Extra Info
 {extraInfo}
 */
@@ -221,28 +221,28 @@ using static global::SourceCrafter.StringExtensions;
 #else
             agentClass = $@"using global::System.Linq;
 using static global::SourceCrafter.HttpExtensions;
-using static global::SourceCrafter.StringExtensions;
+using static global::SourceCrafter.Extensions;
 
 {agentClass}";
 #endif
-            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.http.cs", $@"//<auto generated>
+            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.{process}.cs", $@"//<auto generated>
 {agentClass}");
         }
         catch (Exception e)
         {
-            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.http.cs", $"/*{e}*/");
+            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.{process}.cs", $"/*{e}*/");
         }
     }
 
-    internal static string GenerateCaseConverter(AgentOptions agentOptions, string prop, string? fallBackConverter = "value => value")
+    internal static string GenerateCaseConverter(Casing casing, string prop, string? fallBackConverter = "value => value")
     {
-        return agentOptions.PropertyCasing != Casing.None
-                            ? $@",
-                {prop} = global::SourceCrafter.HttpServiceClient.Policies.CasingPolicy.Create(global::SourceCrafter.HttpServiceClient.Enums.Casing.{agentOptions.PropertyCasing})"
-                            : fallBackConverter != null
-                                ? $@",
+        return casing != Casing.None
+            ? $@",
+                {prop} = global::SourceCrafter.HttpServiceClient.Policies.CasingPolicy.Create(global::SourceCrafter.HttpServiceClient.Enums.Casing.{casing})"
+            : fallBackConverter != null
+                ? $@",
                 {prop} = {fallBackConverter}"
-                                : "";
+                : "";
     }
 
     internal static void CreateType(
@@ -334,7 +334,7 @@ using static global::SourceCrafter.StringExtensions;
             }
 
             var classSyntax = $@"using static global::SourceCrafter.HttpExtensions;
-using static global::SourceCrafter.StringExtensions;
+using static global::SourceCrafter.Extensions;
 using {agentOptions.AgentTypeName} = {agentOptions.AgentFullTypeName};
 
 namespace {containingNamespace.Replace("global::", "")}
@@ -361,10 +361,11 @@ namespace {containingNamespace.Replace("global::", "")}
     private static void TryGetServiceDescriptor(IPropertySymbol prop, out string? serviceName, out string? segmentName)
     {
         foreach (var a in prop.GetAttributes())
-            if (a is {
-                AttributeClass.Name: nameof(ServiceDescriptionAttribute),
-                ConstructorArguments: [{ Value: var value }, { Value: var value2 }]
-            })
+            if (a is
+                {
+                    AttributeClass.Name: nameof(ServiceDescriptionAttribute),
+                    ConstructorArguments: [{ Value: var value }, { Value: var value2 }]
+                })
             {
                 (serviceName, segmentName) = (value as string, value2 as string);
                 return;
@@ -434,7 +435,7 @@ namespace {containingNamespace.Replace("global::", "")}
 
         if (prop.IsIndexer)
         {
-            List<PathSegment> newSegments = new();
+            List<PathSegment> newSegments = [];
             string? indexerParamsComma = null;
 
             foreach (var ip in prop.Parameters)
@@ -580,12 +581,12 @@ namespace {nameSpace.Replace("global::", "")}
         segments
             .Where(s => s.Name != null)
             .Select(r => r.Name!.ToPascal())
-            .ToArray() switch
+            .ToArray().AsMemory() switch
         {
             { Length: { } l and > 0 } names =>
-                type.Name[(type is { Name: ['I',..], TypeKind: TypeKind.Interface }  ? 1 : 0)..] + "By" + (l == 1
-                    ? names[0]
-                    : string.Join("", names.Take(l - 1)) + "And" + names[^1]),
+                type.Name[(type is { Name: ['I', ..], TypeKind: TypeKind.Interface } ? 1 : 0)..] + "By" + (l == 1
+                    ? names.Span[0]
+                    : string.Join("", names[..^1]) + "And" + names.Span[^1]),
             _ => null
         };
 
@@ -613,7 +614,7 @@ namespace {nameSpace.Replace("global::", "")}
 #endif
         )
     {
-        List<MethodDescriptor> methods = new();
+        List<MethodDescriptor> methods = [];
 
         foreach (var iFace in cls.Interfaces)
         {
@@ -702,13 +703,13 @@ namespace {nameSpace.Replace("global::", "")}
             opDescriptor.BodyParamName = name ?? "body";
             opDescriptor.BodyType = type;
             opDescriptor.BodyTypeName = realTypeName;
+
             if (isOpNs && resName.IndexOf(Body) is { } i and > 0 && resName[..i] is { Length: > 0 } format)
                 opDescriptor.BodyFormatType = format;
         }
         else
         {
-            string status = SourceCrafter.HttpExtensions.HttpStatuses.TryGetValue(code, out var _status) ? _status : "OK";
-            opDescriptor.Responses[status] =
+            opDescriptor.Responses[GetStatusName(code)] =
                 (
                     realTypeName,
                     TryGetResultFormat(isOpNs, resName, out var result)
@@ -732,6 +733,74 @@ namespace {nameSpace.Replace("global::", "")}
             return isOpNs && resName.IndexOf(Result) is { } i and > 0 && resName[..i] is { Length: > 0 } format && Enum.TryParse(format, out result);
         }
     }
+
+
+    internal static string GetStatusName(int val) =>
+        val switch
+        {
+            100 => "Continue",
+            101 => "SwitchingProtocols",
+            102 => "Processing",
+            103 => "EarlyHints",
+            200 => "OK",
+            201 => "Created",
+            202 => "Accepted",
+            203 => "NonAuthoritativeInformation",
+            204 => "NoContent",
+            205 => "ResetContent",
+            206 => "PartialContent",
+            207 => "MultiStatus",
+            208 => "AlreadyReported",
+            226 => "IMUsed",
+            300 => "Ambiguous",
+            301 => "Moved",
+            302 => "Found",
+            303 => "RedirectMethod",
+            304 => "NotModified",
+            305 => "UseProxy",
+            306 => "Unused",
+            307 => "TemporaryRedirect",
+            308 => "PermanentRedirect",
+            400 => "BadRequest",
+            401 => "Unauthorized",
+            402 => "PaymentRequired",
+            403 => "Forbidden",
+            404 => "NotFound",
+            405 => "MethodNotAllowed",
+            406 => "NotAcceptable",
+            407 => "ProxyAuthenticationRequired",
+            408 => "RequestTimeout",
+            409 => "Conflict",
+            410 => "Gone",
+            411 => "LengthRequired",
+            412 => "PreconditionFailed",
+            413 => "RequestEntityTooLarge",
+            414 => "RequestUriTooLong",
+            415 => "UnsupportedMediaType",
+            416 => "RequestedRangeNotSatisfiable",
+            417 => "ExpectationFailed",
+            421 => "MisdirectedRequest",
+            422 => "UnprocessableEntity",
+            423 => "Locked",
+            424 => "FailedDependency",
+            426 => "UpgradeRequired",
+            428 => "PreconditionRequired",
+            429 => "TooManyRequests",
+            431 => "RequestHeaderFieldsTooLarge",
+            451 => "UnavailableForLegalReasons",
+            500 => "InternalServerError",
+            501 => "NotImplemented",
+            502 => "BadGateway",
+            503 => "ServiceUnavailable",
+            504 => "GatewayTimeout",
+            505 => "HttpVersionNotSupported",
+            506 => "VariantAlsoNegotiates",
+            507 => "InsufficientStorage",
+            508 => "LoopDetected",
+            510 => "NotExtended",
+            511 => "NetworkAuthenticationRequired",
+            _ => "Unknown"
+        };
 
     private static string UnwrapTypeName(string returnTypeName, string token)
     {

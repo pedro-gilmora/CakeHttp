@@ -82,7 +82,7 @@ internal sealed class AgentOptions
     internal BodyFormat DefaultBodyFormat { get; set; } = BodyFormat.Json;
     internal ResultFormat DefaultResultFormat { get; } = ResultFormat.Json;
     internal string? SegmentFallback { get; set; }
-    internal Dictionary<string, string> HelperMethods { get; } = new();
+    internal Dictionary<string, string> HelperMethods { get; } = [];
     internal bool NeedsJsonOptions { get; set; }
     internal bool NeedsXmlOptions { get; set; }
     internal string? BaseUrlAbsolutePath { get; set; }
@@ -92,6 +92,6 @@ internal sealed class AgentOptions
     internal Casing DefaultCasing { get; }
     internal string? DefaultJsonContext { get; }
 
-    internal List<string> Logs = new();
+    internal List<string> Logs = [];
     internal Func<object?, StringBuilder> HelperMethod;
 }

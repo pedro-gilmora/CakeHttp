@@ -5,13 +5,10 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 	  <UserSecretsId>84b47437-b0e6-4b61-9c9e-d97f52acc721</UserSecretsId>
-	  <Configurations>Debug;Release;Pack</Configurations>
+	  <Configurations>Debug;Release;Pack;Debug SG</Configurations>
   </PropertyGroup>
 
 	<ItemGroup>
-	  <Compile Remove="Models\Xml\**" />
-	  <EmbeddedResource Remove="Models\Xml\**" />
-	  <None Remove="Models\Xml\**" />
 	  <Compile Remove="TravellersClientTests.cs" />
 	</ItemGroup>
 
@@ -26,12 +23,11 @@
 
 	<ItemGroup>
 		<PackageReference Include="FluentAssertions" Version="6.11.0" PrivateAssets="all" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
-		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.4.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="4.7.0" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="7.0.0" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" PrivateAssets="all" />
-		<PackageReference Include="SourceCrafter.HttpServiceClientGenerator" Version="0.*" Condition="'$(Configuration)' == 'Pack'" />
 		<PackageReference Include="xunit" Version="2.4.2" PrivateAssets="all" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" PrivateAssets="all">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -39,6 +35,28 @@
 		<PackageReference Include="coverlet.collector" Version="6.0.0">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+	</ItemGroup>
+	
+	<ItemGroup Condition=" '$(Configuration)' == 'Debug' ">
+		<ProjectReference Include="..\SourceCrafter.HttpServiceClientGenerator\SourceCrafter.HttpServiceClientGenerator.csproj" PrivateAssets="all" OutputItemType="Analyzer" />
+	</ItemGroup>
+	
+	<ItemGroup Condition="'$(Configuration)'=='Debug SG'">
+	  <ProjectReference Include="..\SourceCrafter.HttpServiceClientGenerator\SourceCrafter.HttpServiceClientGenerator.csproj">
+	    <PrivateAssets>all</PrivateAssets>
+	    <OutputItemType>Analyzer</OutputItemType>
+	  </ProjectReference>
+	</ItemGroup>
+
+	<PropertyGroup Condition=" '$(Configuration)' != 'Debug' ">
+		<RestoreSources>$(SolutionDir)/SourceCrafter.HttpServiceClientGenerator/bin/Pack/;$(RestoreSources)</RestoreSources>
+	</PropertyGroup>
+
+	<ItemGroup Condition=" '$(Configuration)' != 'Debug' ">
+		<PackageReference Include="SourceCrafter.HttpServiceClientGenerator" Version="1.24.70.61">
+			<ExcludeAssets>buildtransitive</ExcludeAssets>
+			<PrivateAssets>buildtransitive</PrivateAssets>
 		</PackageReference>
 	</ItemGroup>
 

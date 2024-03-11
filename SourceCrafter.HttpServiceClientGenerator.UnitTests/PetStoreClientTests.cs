@@ -1,6 +1,5 @@
 using FluentAssertions;
 using SmartBear.Json;
-using SmartBear.Json;
 using Newtonsoft.Json.Converters;
 using SourceCrafter.HttpServiceClient.Operations;
 using System.Xml.Linq;

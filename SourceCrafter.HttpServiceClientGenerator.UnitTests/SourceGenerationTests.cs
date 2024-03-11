@@ -81,7 +81,7 @@ public interface IPetStoreService
 
                 var attr = typeSymbol.GetAttributes().First(a => a.AttributeClass.Name.StartsWith("ServiceOptions"));
                 //TODO: Usar parametros contextuales para indexers
-                Generator.CreateFiles(fileAndContent.Add, semanticModel, attr, typeSymbol);
+                Generator.CreateFiles(fileAndContent.Add, semanticModel, attr, typeSymbol, "http");
             }
         }
 

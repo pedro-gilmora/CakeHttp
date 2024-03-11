@@ -5,6 +5,8 @@ using SourceCrafter.HttpServiceClientGenerator.UnitTests;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SourceCrafter.HttpServiceClient.UnitTests
 {
@@ -29,16 +31,18 @@ namespace SourceCrafter.HttpServiceClient.UnitTests
         {
             try
             {
-                var (code, ok, errors) = await (useDedicatedService ? new LoginService() : _client.Auth.Login).PostAsync(credConfigs);
-                switch (code)
+                switch (await (useDedicatedService ? new LoginService() : _client.Auth.Login).PostAsync(credConfigs))
                 {
-                    case HttpStatusCode.OK:
-                        ok.Me.Should().NotBeNull();
-                        ok.Me.Name.Should().Be("Pedro Luis");
-                        break;
+                    case { StatusCode: HttpStatusCode.OK, OK.Me: { } me }:
 
-                    case HttpStatusCode.UnprocessableEntity:
+                        me.Should().NotBeNull();
+                        me.Name.Should().Be("Pedro Luis");
+
+                        break;
+                    case { StatusCode: HttpStatusCode.OK, UnprocessableEntity: { } errors }:
+
                         errors.Should().HaveCountGreaterThan(0);
+
                         break;
                 }
             }
@@ -56,7 +60,7 @@ namespace SourceCrafter.HttpServiceClient.UnitTests
                 new object[] { true,    new Credentials("pedro@test.com", "1234$5643")},
                 new object[] { false,   new Credentials("pedro@test.com", "1234$5643")},
                 new object[] { true,    new Credentials("pedro@test.com", "1234$5643")},
-                new object[] { true,    GetWorkingCredentials() }
+                new object[] { false,    GetWorkingCredentials() }
             };
 
         private static Credentials GetWorkingCredentials()
