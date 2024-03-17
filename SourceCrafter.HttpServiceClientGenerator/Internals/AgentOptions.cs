@@ -21,8 +21,11 @@ internal sealed class AgentOptions
         BaseUrlAbsolutePath = BaseUrl.AbsolutePath.TrimEnd('/');
         BaseAddress = BaseUrl.ToString().TrimEnd('/');
         AgentNamespace = agentNamespace;
-        AgentTypeName = agentTypeName;
-        AgentFullTypeName = $"{agentNamespace}.{agentTypeName}";
+        HandlerTypeName = agentTypeName;
+        FullTypeName = $"{agentNamespace}.{agentTypeName}";
+        string[]? strings = null;
+
+        if(strings?.Length > 0) { }
 
         if (attr.AttributeClass is { TypeArguments: [{ } contextType] })
         {
@@ -41,7 +44,12 @@ internal sealed class AgentOptions
                 case nameof(HttpServiceAttribute.EnumQueryCasing): EnumQueryCasing = (Casing)kv.Value.Value!; continue;
                 case nameof(HttpServiceAttribute.EnumSerializationCasing): EnumSerializationCasing = (Casing)kv.Value.Value!; continue;
                 case nameof(HttpServiceAttribute.DefaultCasing):
-                    EnumSerializationCasing = PathCasing = QueryCasing = PropertyCasing = EnumQueryCasing = DefaultCasing = (Casing)kv.Value.Value!;
+                    EnumSerializationCasing = 
+                        PathCasing =
+                        QueryCasing =
+                        PropertyCasing = 
+                        EnumQueryCasing = 
+                        DefaultCasing = (Casing)kv.Value.Value!;
                     continue;
                 case nameof(HttpServiceAttribute.DefaultFormat) when DefaultJsonContext == null : 
                     DefaultBodyFormat = (DefaultResultFormat = DefaultFormat = (ResultFormat)kv.Value.Value!) switch
@@ -63,35 +71,46 @@ internal sealed class AgentOptions
         EnumSerializationCasingFn = CasingPolicy.GetConverter(EnumSerializationCasing);
     }
 
+    internal readonly Uri BaseUrl;
+
     public ResultFormat DefaultFormat { get; private set; } = ResultFormat.Json;
 
-    internal Uri BaseUrl { get; }
-    internal string AgentTypeName { get; }
-    internal string AgentNamespace { get; }
-    internal Casing PathCasing { get; } = Casing.CamelCase;
-    internal Casing QueryCasing { get; } = Casing.CamelCase;
-    internal Casing PropertyCasing { get; } = Casing.CamelCase;
-    internal Casing EnumQueryCasing { get; } = Casing.CamelCase;
-    internal Casing EnumPathCasing { get; } = Casing.CamelCase;
-    internal Casing EnumSerializationCasing { get; } = Casing.CamelCase;
-    internal Func<string?, string?> PathCasingFn { get; }
-    internal Func<string?, string?> QueryPropCasingFn { get; }
-    internal Func<string?, string?> EnumQueryCasingFn { get; }
-    internal Func<string?, string?> EnumSerializationCasingFn { get; }
-    internal Func<string?, string?> PropertyCasingFn { get; }
-    internal BodyFormat DefaultBodyFormat { get; set; } = BodyFormat.Json;
-    internal ResultFormat DefaultResultFormat { get; } = ResultFormat.Json;
-    internal string? SegmentFallback { get; set; }
-    internal Dictionary<string, string> HelperMethods { get; } = [];
-    internal bool NeedsJsonOptions { get; set; }
-    internal bool NeedsXmlOptions { get; set; }
-    internal string? BaseUrlAbsolutePath { get; set; }
-    internal string BaseAddress { get; }
-    internal string AgentFullTypeName { get; set; }
-    internal (string, string)[] ResponseTypes { get; } = new(string, string)[] { };
-    internal Casing DefaultCasing { get; }
-    internal string? DefaultJsonContext { get; }
+    internal BodyFormat DefaultBodyFormat = BodyFormat.Json;
 
-    internal List<string> Logs = [];
-    internal Func<object?, StringBuilder> HelperMethod;
+    internal readonly ResultFormat DefaultResultFormat = ResultFormat.Json;
+
+    internal readonly (string, string)[] ResponseTypes = [];
+
+    internal readonly Dictionary<string, string> HelperMethods = [];
+
+    internal bool
+        NeedsJsonOptions,
+        NeedsXmlOptions;
+
+    internal readonly string?
+        SegmentFallback,
+        DefaultJsonContext,
+        BaseUrlAbsolutePath;
+
+    internal readonly string 
+        HandlerTypeName,
+        AgentNamespace,
+        BaseAddress,
+        FullTypeName;
+
+    internal readonly Func<string?, string?>
+        PathCasingFn,
+        QueryPropCasingFn,
+        EnumQueryCasingFn,
+        EnumSerializationCasingFn,
+        PropertyCasingFn;
+
+    internal readonly Casing 
+        PathCasing = Casing.CamelCase,
+        QueryCasing = Casing.CamelCase,
+        PropertyCasing = Casing.CamelCase,
+        EnumQueryCasing = Casing.CamelCase,
+        EnumPathCasing = Casing.CamelCase,
+        EnumSerializationCasing = Casing.CamelCase,
+        DefaultCasing;
 }

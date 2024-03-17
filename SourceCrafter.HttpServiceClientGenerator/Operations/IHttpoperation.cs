@@ -58,6 +58,38 @@ namespace SourceCrafter.HttpServiceClient.Operations
         public static implicit operator T(Query<T> from) => from.Value;
         public static implicit operator Query<T>(T to) => new(to);
     }
+
+    public readonly record struct RequestHeader<T>
+    {
+        private RequestHeader(T value) => Value = value;
+        public T Value { get; }
+        public static implicit operator T(RequestHeader<T> from) => from.Value;
+        public static implicit operator RequestHeader<T>(T to) => new(to);
+    }
+
+    public readonly record struct ResponseHeader<T>
+    {
+        private ResponseHeader(T value) => Value = value;
+        public T Value { get; }
+        public static implicit operator T(ResponseHeader<T> from) => from.Value;
+        public static implicit operator ResponseHeader<T>(T to) => new(to);
+    }
+
+    public readonly record struct RequestCookie<T>
+    {
+        private RequestCookie(T value) => Value = value;
+        public T Value { get; }
+        public static implicit operator T(RequestCookie<T> from) => from.Value;
+        public static implicit operator RequestCookie<T>(T to) => new(to);
+    }
+
+    public readonly record struct ResponseCookie<T>
+    {
+        private ResponseCookie(T value) => Value = value;
+        public T Value { get; }
+        public static implicit operator T(ResponseCookie<T> from) => from.Value;
+        public static implicit operator ResponseCookie<T>(T to) => new(to);
+    }
     public readonly record struct Body<T>
     {
         private Body(T value) => Value = value;
@@ -120,6 +152,13 @@ namespace SourceCrafter.HttpServiceClient.Operations
         public T Value { get; }
         public static implicit operator T(XmlResult<T> from) => from.Value;
         public static implicit operator XmlResult<T>(T to) => new(to);
+    }
+    public readonly record struct XmlFail<T>
+    {
+        private XmlFail(T value) => Value = value;
+        public T Value { get; }
+        public static implicit operator T(XmlFail<T> from) => from.Value;
+        public static implicit operator XmlFail<T>(T to) => new(to);
     }
 
 #if DEBUG

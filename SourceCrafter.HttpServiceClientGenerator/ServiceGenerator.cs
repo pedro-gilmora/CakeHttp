@@ -13,6 +13,7 @@ using SourceCrafter.HttpServiceClient.Enums;
 using SourceCrafter.HttpServiceClient.Internals;
 using SourceCrafter.HttpServiceClient.Operations;
 using System.Diagnostics;
+using System.Net.Http;
 
 [assembly: InternalsVisibleTo("SourceCrafter.HttpServiceClientGenerator.UnitTests")]
 // ReSharper disable once CheckNamespace
@@ -81,19 +82,19 @@ internal class ServiceGenerator : IIncrementalGenerator
             interfaceName = type.Name,
             name = interfaceName[1..].Replace("Api", "").Replace("Service", ""),
             clientName = $"{name}Client",
-            agentName = $"{name}Agent";
-        AgentOptions agentOptions = new(
+            agentName = $"{name}Handler";
+
+        AgentOptions handlerOptions = new(
             attr,
             type.ContainingNamespace.ToDisplayString(GlobalizedNamespace),
             agentName);
 
         try
         {
-
             HashSet<string> fileNames = [];
 
             var ctor = $@"public {clientName}(){{
-            _path = ""{agentOptions.BaseUrlAbsolutePath}"";            
+            _path = ""{handlerOptions.BaseUrlAbsolutePath}"";            
         }}";
 
             StringBuilder extraInfo = new();
@@ -101,16 +102,16 @@ internal class ServiceGenerator : IIncrementalGenerator
                 => extraInfo.Append(s);
 
             AddInfo($@"
-DefaultBodyType: {agentOptions.DefaultBodyFormat},
-DefaultResponseType: {agentOptions.DefaultResultFormat},
-DefaultFormat: {agentOptions.DefaultFormat}");
+DefaultBodyType: {handlerOptions.DefaultBodyFormat},
+DefaultResponseType: {handlerOptions.DefaultResultFormat},
+DefaultFormat: {handlerOptions.DefaultFormat}");
 
 
             CreateType(
-                agentOptions,
+                handlerOptions,
                 semanticModel,
-                $"{agentOptions.AgentNamespace.Replace("global::", "")}.{clientName}.http.cs".TrimStart('.'),
-                type.ContainingNamespace.ToDisplayString(GlobalizedNamespace),
+                $"{handlerOptions.AgentNamespace.Replace("global::", "")}.{clientName}.http.cs".TrimStart('.'),
+                handlerOptions.AgentNamespace,
                 fileNames,
                 type,
                 clientName,
@@ -124,42 +125,45 @@ DefaultFormat: {agentOptions.DefaultFormat}");
 #endif
                 );
 
-            var agentClass = $@"namespace {agentOptions.AgentNamespace.Replace("global::", "")}
+            var handlerClass = $@"namespace {handlerOptions.AgentNamespace.Replace("global::", "")}
 {{
-    internal sealed class {agentOptions.AgentTypeName} 
+    internal sealed class {handlerOptions.HandlerTypeName} : global::System.Net.Http.HttpClientHandler
     {{
         internal string DefaultQueryValues = """";
         private global::System.Collections.Generic.Dictionary<string, object?> defaultQueryValues = new();
         internal global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.Tasks.Task>? DefaultRequestHandler = null;
         internal global::System.Func<System.Net.Http.HttpResponseMessage, global::System.Threading.Tasks.Task>? DefaultResponseHandler = null;
         internal global::System.Net.Http.HttpClient Client;
+        private global::System.Net.CookieContainer _cookieContainer;
         
-        internal static {agentOptions.AgentTypeName} Default {{ get; }} = new();";
+        internal static {handlerOptions.HandlerTypeName} Default {{ get; }} = new();";
 
-            if (agentOptions.NeedsJsonOptions || agentOptions.DefaultFormat == ResultFormat.Json)
-                agentClass += @$"
+            if (handlerOptions.NeedsJsonOptions || handlerOptions.DefaultFormat == ResultFormat.Json)
+                handlerClass += @$"
 
-        internal static global::System.Text.Json.JsonSerializerOptions JsonOptions {{ get; }} = InitializeJsonOptions();
+        internal global::System.Text.Json.JsonSerializerOptions JsonOptions {{ get; }} = InitializeJsonOptions();
         
         private static global::System.Text.Json.JsonSerializerOptions InitializeJsonOptions()
         {{
-            var options = new global::System.Text.Json.JsonSerializerOptions({agentOptions.DefaultJsonContext}) 
+            var options = new global::System.Text.Json.JsonSerializerOptions({handlerOptions.DefaultJsonContext}) 
             {{                
-                ReferenceHandler = global::System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles{GenerateCaseConverter(agentOptions.PropertyCasing, "PropertyNamingPolicy")}                
+                ReferenceHandler = global::System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles{GenerateCaseConverter(handlerOptions.PropertyCasing, "PropertyNamingPolicy")}                
             }};
-            options.Converters.Insert(0, new global::SourceCrafter.HttpServiceClient.Converters.EnumJsonConverter(global::SourceCrafter.HttpServiceClient.Enums.Casing.{agentOptions.EnumSerializationCasing}));
+            
+            options.Converters.Insert(0, new global::SourceCrafter.HttpServiceClient.Converters.EnumJsonConverter(global::SourceCrafter.HttpServiceClient.Enums.Casing.{handlerOptions.EnumSerializationCasing}));
+            
             return options;
         }}";
 
-            agentClass += $@"
+            handlerClass += $@"
 
-        private {agentOptions.AgentTypeName}()
+        internal {handlerOptions.HandlerTypeName}()
         {{
-            Client ??= new () 
+            Client ??= new (this) 
             {{ 
-                BaseAddress = new global::System.Uri(""{agentOptions.BaseAddress}"")
+                BaseAddress = new global::System.Uri(""{handlerOptions.BaseAddress}"")
             }};
-        }}{agentOptions.HelperMethods.Values.Join(@"
+        }}{handlerOptions.HelperMethods.Values.Join(@"
                 
         ")}
 
@@ -167,27 +171,52 @@ DefaultFormat: {agentOptions.DefaultFormat}");
             global::System.Net.Http.HttpMethod method, 
             string path, 
             global::System.UriKind uriKind, 
-            global::System.Net.Http.HttpContent? content = null
-        ) =>
-            new global::System.Net.Http.HttpRequestMessage(
-                method, 
-                new global::System.Uri(GetUrl(path), uriKind)
-            )
-           {{ 
-               Content = content 
-           }};
-            
-        public static void SetDefaultValues(global::System.Collections.Generic.IDictionary<string, object?> defaults, bool clear = false)
+            global::System.Net.Http.HttpContent? content = null, 
+            (string, string)[]? cookies = null, 
+            (string, string)[]? headers = null
+        )
         {{
-            if(clear) Default.defaultQueryValues.Clear();
+            var uri = new global::System.Uri(GetUrl(path), uriKind);
+
+            var uri = request.RequestUri;
+            var cookieHeader = _cookieContainer.GetCookieHeader(uri);
+
+            if(cookies?.Length > 0)
+            {{
+                foreach (var (key, value) in cookies);
+                    _cookieContainer.Add(key, value);
+            }}
+
+            request.Headers.Add(""Cookie"", cookieHeader);
+
+            if(headers?.Length > 0)
+            {{
+                foreach (var (key, value) in headers);
+                    request.Headers.Add(key, value);
+            }}
+
+            return new global::System.Net.Http.HttpRequestMessage(method, uri) {{ Content = content }};            
+        }}
+            
+        public static void SetDefaultValues
+        (
+            global::System.Collections.Generic.IDictionary<string, object?> defaults, 
+            bool clear = false
+        )
+        {{
+            if(clear) 
+                Default.defaultQueryValues.Clear();
             
             foreach(var kv in defaults)
                 Default.defaultQueryValues[kv.Key] = kv.Value;
 
-            Default.DefaultQueryValues = string.Join(""&"", Default.defaultQueryValues.Select(kv => kv.Key + ""="" + global::System.Uri.EscapeDataString(kv.Value?.ToString() + """")));
+            Default.DefaultQueryValues = string.Join(""&"", 
+                Default.defaultQueryValues.Select(kv => global::System.Uri.EscapeDataString(kv.Key) + ""="" + global::System.Uri.EscapeDataString(kv.Value?.ToString() + """")));
         }}
 
-        internal static async global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage> SendAsync(
+        internal static async 
+            global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage> SendAsync
+        (
             global::System.Net.Http.HttpRequestMessage request, 
             global::System.Threading.CancellationToken cancelToken
         ) 
@@ -196,6 +225,14 @@ DefaultFormat: {agentOptions.DefaultFormat}");
                 await requestHandler(request);
 
             var response = await Default.Client.SendAsync(request, cancelToken);
+
+            if (response.Headers.TryGetValues(""Set-Cookie"", out var cookies))
+            {{
+                foreach (var cookie in cookies)
+                {{
+                    _cookieContainer.SetCookies(uri, cookie);
+                }}
+            }}
 
             if (Default.DefaultResponseHandler is {{}} responseHandler)
                 await responseHandler(response);
@@ -207,30 +244,39 @@ DefaultFormat: {agentOptions.DefaultFormat}");
         {{
             if(Default.DefaultQueryValues.Length > 0)
                 baseUrl += baseUrl.StartsWith(""?"") ? ""&"" : ""?"";
+
             return baseUrl + Default.DefaultQueryValues;
         }}
     }}
+}}
+
+namespace SourceCrafter.Bindings.Injection
+{{
+    public static global::Microsoft.Extensions.DependencyInjection.IServiceCollection Add{clientName}
+    (
+        global::Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        global::Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime        
+    )
+    {{
+        return services.Add(
+            new Microsoft.Extensions.DependencyInjection.ServiceDescriptor(
+                typeof({handlerOptions.AgentNamespace}.{interfaceName}),
+                new {handlerOptions.AgentNamespace}.{clientName}()))
+    }}
 }}";
-#if DEBUG
-            agentClass = $@"using static global::SourceCrafter.HttpExtensions;
-using static global::SourceCrafter.Extensions;
-/* Extra Info
-{extraInfo}
-*/
-{agentClass}";
-#else
-            agentClass = $@"using global::System.Linq;
+
+            handlerClass = $@"using global::System.Linq;
 using static global::SourceCrafter.HttpExtensions;
 using static global::SourceCrafter.Extensions;
 
-{agentClass}";
-#endif
-            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.{process}.cs", $@"//<auto generated>
-{agentClass}");
+{handlerClass}";
+
+            addFile($"{handlerOptions.FullTypeName.Replace("global::", "")}.{process}.cs", $@"//<auto generated>
+{handlerClass}");
         }
         catch (Exception e)
         {
-            addFile($"{agentOptions.AgentFullTypeName.Replace("global::", "")}.{process}.cs", $"/*{e}*/");
+            addFile($"{handlerOptions.FullTypeName.Replace("global::", "")}.{process}.cs", $"/*{e}*/");
         }
     }
 
@@ -335,7 +381,7 @@ using static global::SourceCrafter.Extensions;
 
             var classSyntax = $@"using static global::SourceCrafter.HttpExtensions;
 using static global::SourceCrafter.Extensions;
-using {agentOptions.AgentTypeName} = {agentOptions.AgentFullTypeName};
+using {agentOptions.HandlerTypeName} = {agentOptions.FullTypeName};
 
 namespace {containingNamespace.Replace("global::", "")}
 {{
@@ -489,7 +535,7 @@ namespace {containingNamespace.Replace("global::", "")}
             if (newServiceName == null)
             {
                 serviceName = descriptor.OwingnService = prop.IsIndexer
-                                ? GetServiceNameFromParams(segments, prop.ContainingType) ?? agentOptions.AgentTypeName[..^5]
+                                ? GetServiceNameFromParams(segments, prop.ContainingType) ?? agentOptions.HandlerTypeName[..^5]
                                 : prop.Name;
             }
 

@@ -76,7 +76,7 @@ internal sealed class MethodDescriptor
             if(response.IsSuccessStatusCode && response.Content?.To{formatType}Async<{fullReturnType}>(";
 
             if (formatType == ResultFormat.Json)
-                handlerSyntax += $@"{_opts.AgentTypeName}.JsonOptions, ";
+                handlerSyntax += $@"{_opts.HandlerTypeName}.JsonOptions, ";
 
             handlerSyntax += $@"cancelToken) is {(isNullable
                     ? $@"var requestAsync)
@@ -117,7 +117,7 @@ internal sealed class MethodDescriptor
                 case global::System.Net.HttpStatusCode.{status} when response.Content?.To{formatType}Async<{typeName}>(";
 
                 if (formatType == ResultFormat.Json)
-                    handlerSyntax += $@"{_opts.AgentTypeName}.JsonOptions, ";
+                    handlerSyntax += $@"{_opts.HandlerTypeName}.JsonOptions, ";
 
                 handlerSyntax += $@"cancelToken) is ";
 
@@ -249,7 +249,7 @@ internal sealed class MethodDescriptor
                 {content}.Create{bodyFormatType}(";
 
             if (bodyFormatType == "Json")
-                bodyBuilderSyntax += $"{_opts.AgentTypeName}.JsonOptions";
+                bodyBuilderSyntax += $"{_opts.HandlerTypeName}.JsonOptions";
 
             bodyBuilderSyntax += ")";
         }
@@ -294,7 +294,7 @@ internal sealed class MethodDescriptor
             }
             else
             {
-                requestSyntax += $@"{{{_opts.AgentTypeName}.BuildQuery({queryParameterName})}}";
+                requestSyntax += $@"{{{_opts.HandlerTypeName}.BuildQuery({queryParameterName})}}";
 
                 var signature = $@"string BuildQuery({queryTypeName} query)";
 
@@ -387,7 +387,7 @@ internal sealed class MethodDescriptor
         }
     }
     private string BuildRequestSubmission(string methodType, string pathVar, string? queryReference, string? contentReference) =>
-                $@"{queryReference}var request = {_opts.AgentTypeName}.CreateRequest(
+                $@"{queryReference}var request = {_opts.HandlerTypeName}.CreateRequest(
                 global::System.Net.Http.HttpMethod.{methodType},
                 {pathVar}, 
                 global::System.UriKind.Relative{contentReference});
@@ -395,7 +395,7 @@ internal sealed class MethodDescriptor
             if(handleRequest != null)
                 await handleRequest(request);
 
-            var response = await {_opts.AgentTypeName}.SendAsync(request, cancelToken);
+            var response = await {_opts.HandlerTypeName}.SendAsync(request, cancelToken);
             
             if(handleResponse != null)
                 await handleResponse(response);";
